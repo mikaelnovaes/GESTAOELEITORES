@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!--
+    SEGURANÇA: Content-Security-Policy via meta tag (reforço do header HTTP).
+    O header HTTP definido no backend/server.js tem precedência.
+    Esta meta tag é um segundo nível de proteção.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+    content="
+      default-src 'self';
+      script-src  'self' https://cdnjs.cloudflare.com;
+      style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src    'self' https://fonts.gstatic.com;
+      img-src     'self' data: blob:;
+      connect-src 'self' https://graph.facebook.com;
+      frame-src   'none';
+      object-src  'none';
+    ">
+
+  <!-- Previne MIME sniffing -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+  <!-- Impede que a página seja embutida em iframe (clickjacking) -->
+  <meta http-equiv="X-Frame-Options" content="DENY">
+
+  <!-- Sem cache para o HTML (dados sensíveis) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+
+  <title>Gestão de Eleitores</title>
+
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS separado -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ========================= LOGIN ========================= -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-mark">G</div>
+      <h1>Gestão de Eleitores</h1>
+      <p>Sistema de Gestão Eleitoral</p>
+    </div>
+
+    <div class="login-error" id="login-error" role="alert" aria-live="polite"></div>
+
+    <form class="login-form" id="login-form" autocomplete="on" novalidate>
+      <div class="field">
+        <label for="login-user">Usuário</label>
+        <input
+          type="text"
+          id="login-user"
+          name="username"
+          autocomplete="username"
+          required
+          maxlength="100"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="none"
+          placeholder="Seu login">
+      </div>
+      <div class="field">
+        <label for="login-pass">Senha</label>
+        <input
+          type="password"
+          id="login-pass"
+          name="password"
+          autocomplete="current-password"
+          required
+          maxlength="200"
+          placeholder="Sua senha">
+      </div>
+      <div id="login-rate-warning" style="display:none" class="rate-limit-warning" role="alert">
+        ⚠ Muitas tentativas. Aguarde antes de tentar novamente.
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:0.5rem; padding:0.75rem;">
+        Entrar
+      </button>
+    </form>
+
+    <div class="login-hint">
+      <span class="security-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Conexão segura
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= APP ========================= -->
+<div class="app-wrapper" id="app">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-brand">
+      <div class="brand-mark">G</div>
+      <div class="brand-text">
+        <h2>Gestão de Eleitores</h2>
+        <p>Sistema Eleitoral</p>
+      </div>
+    </div>
+
+    <nav id="main-nav">
+      <div class="nav-section">Eleitores</div>
+      <button class="nav-btn active" data-view="list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Todos os Eleitores
+      </button>
+      <button class="nav-btn" data-view="new">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Cadastro
+      </button>
+      <button class="nav-btn" data-view="import">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar Excel
+      </button>
+      <button class="nav-btn" data-view="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        Relatórios
+      </button>
+
+      <div class="nav-section">WhatsApp</div>
+      <button class="nav-btn" data-view="whatsapp-send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Enviar Mensagem
+      </button>
+      <button class="nav-btn admin-only" data-view="whatsapp-config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configuração
+      </button>
+      <button class="nav-btn" data-view="whatsapp-log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Histórico
+      </button>
+
+      <div class="nav-section">Robôs de IA</div>
+      <button class="nav-btn" data-view="robots">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+        Central de Robôs
+      </button>
+      <button class="nav-btn" data-view="birthday">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/></svg>
+        Aniversários
+      </button>
+      <button class="nav-btn" data-view="reactivation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Reativação
+      </button>
+
+      <div class="nav-section admin-only" style="display:none">Administração</div>
+      <button class="nav-btn admin-only" data-view="users" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Usuários
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-name" id="footer-user-name">—</div>
+        <div class="user-role" id="footer-user-role">—</div>
+      </div>
+      <button class="logout-btn" id="logout-btn" title="Sair" aria-label="Sair do sistema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main id="main-content" role="main">
+
+    <!-- ========================= LISTA ========================= -->
+    <section id="view-list" class="view active" aria-label="Lista de eleitores">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title">Eleitores Registrados</div>
+          </div>
+          <div class="header-actions">
+            <div class="stat">
+              <div class="stat-number" id="stat-total">0</div>
+              <div class="stat-label">Total</div>
+            </div>
+            <button class="btn btn-secondary" id="btn-export-csv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar CSV
+            </button>
+            <button class="btn btn-primary" id="btn-new-eleitor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo Eleitor
+            </button>
+          </div>
+        </div>
+
+        <div class="filters" role="search" aria-label="Filtros de eleitores">
+          <input
+            type="search"
+            id="filter-nome"
+            placeholder="Buscar por nome..."
+            maxlength="200"
+            aria-label="Filtrar por nome">
+          <select id="filter-bairro" aria-label="Filtrar por bairro">
+            <option value="">Todos os bairros</option>
+          </select>
+          <select id="filter-cidade" aria-label="Filtrar por cidade">
+            <option value="">Todas as cidades</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-clear-filters">Limpar</button>
+        </div>
+
+        <div id="list-container" role="region" aria-label="Resultados"></div>
+      </div>
+    </section>
+
+    <!-- ========================= NOVO / EDITAR ========================= -->
+    <section id="view-new" class="view" aria-label="Cadastro de eleitor">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title" id="form-title">Novo Eleitor</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-cancel-form">Cancelar</button>
+            <button class="btn btn-gold" id="btn-save-eleitor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Salvar
+            </button>
+          </div>
+        </div>
+
+        <form id="eleitor-form" novalidate>
+          <input type="hidden" id="eleitor-id">
+
+          <div class="fields">
+            <!-- Foto -->
+            <div class="field full photo-area">
+              <div class="photo-preview" id="photo-preview">
+                <span id="photo-initial">?</span>
+              </div>
+              <div class="photo-actions">
+                <label class="btn btn-secondary" style="cursor:pointer;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  Selecionar Foto
+                  <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" style="display:none">
+                </label>
+                <button type="button" class="btn btn-secondary" id="btn-remove-photo" style="display:none">Remover</button>
+                <small style="color:var(--muted); font-size:0.75rem;">JPEG, PNG ou WebP. Máximo 2MB.</small>
+              </div>
+            </div>
+
+            <!-- Dados pessoais -->
+            <div class="field full">
+              <label for="f-nome">Nome Completo *</label>
+              <input type="text" id="f-nome" name="nome" required maxlength="200" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="f-nascimento">Data de Nascimento</label>
+              <input type="date" id="f-nascimento" name="data_nascimento">
+            </div>
+            <div class="field">
+              <label for="f-telefone">Telefone / WhatsApp</label>
+              <input type="tel" id="f-telefone" name="telefone" maxlength="20" placeholder="(11) 99999-9999" autocomplete="tel">
+            </div>
+            <div class="field full">
+              <label for="f-email">E-mail</label>
+              <input type="email" id="f-email" name="email" maxlength="200" autocomplete="email">
+            </div>
+
+            <!-- Endereço -->
+            <div class="field" style="grid-column: span 1;">
+              <label for="f-endereco">Endereço (Rua/Av.)</label>
+              <input type="text" id="f-endereco" name="endereco" maxlength="300" autocomplete="street-address">
+            </div>
+            <div class="field">
+              <label for="f-numero">Número</label>
+              <input type="text" id="f-numero" name="numero" maxlength="20">
+            </div>
+            <div class="field">
+              <label for="f-bairro">Bairro</label>
+              <input type="text" id="f-bairro" name="bairro" maxlength="100">
+            </div>
+            <div class="field">
+              <label for="f-cidade">Cidade</label>
+              <input type="text" id="f-cidade" name="cidade" maxlength="100">
+            </div>
+
+            <!-- Dados eleitorais -->
+            <div class="field">
+              <label for="f-titulo">Título de Eleitor</label>
+              <input type="text" id="f-titulo" name="titulo_eleitor" maxlength="20">
+            </div>
+            <div class="field">
+              <label for="f-secao">Seção</label>
+              <input type="text" id="f-secao" name="secao" maxlength="10">
+            </div>
+            <div class="field full">
+              <label for="f-escola">Escola / Local de Votação</label>
+              <input type="text" id="f-escola" name="escola_votacao" maxlength="200">
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ========================= IMPORTAR ========================= -->
+    <section id="view-import" class="view" aria-label="Importar planilha">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title">Importar Planilha</div>
+          </div>
+        </div>
+
+        <div class="import-step" id="step-upload">
+          <div class="import-step-title">
+            <span class="import-step-num">1</span> Selecionar Arquivo
+          </div>
+          <div class="import-step-desc">Selecione uma planilha Excel (.xlsx, .xls) ou CSV. A primeira linha deve conter os nomes das colunas.</div>
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Área de upload de arquivo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="dropzone-text">Clique aqui ou arraste a planilha</div>
+            <div class="dropzone-sub">Tamanho máximo recomendado: 5MB</div>
+          </div>
+          <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none" aria-hidden="true">
+        </div>
+
+        <div class="import-step" id="step-mapping" style="display:none">
+          <div class="import-step-title"><span class="import-step-num">2</span> Mapeamento de Colunas</div>
+          <div class="import-step-desc">Revise e ajuste o mapeamento automático.</div>
+          <div id="file-info"></div>
+          <div class="mapping-grid" id="mapping-grid" role="table"></div>
+        </div>
+
+        <div class="import-step" id="step-preview" style="display:none">
+          <div class="import-step-title"><span class="import-step-num">3</span> Pré-visualização</div>
+          <div class="import-step-desc">Confira os primeiros registros antes de importar.</div>
+          <div id="preview-info"></div>
+          <div class="preview-table" id="preview-table"></div>
+          <div style="margin-top:1.5rem; display:flex; gap:0.6rem; justify-content:flex-end;">
+            <button class="btn btn-secondary" id="btn-import-cancel">Cancelar</button>
+            <button class="btn btn-gold" id="btn-import-confirm">Confirmar Importação</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================= RELATÓRIOS ========================= -->
+    <section id="view-reports" class="view" aria-label="Relatórios">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Dados</div>
+            <div class="panel-title">Relatórios</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-print-report">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Imprimir
+            </button>
+          </div>
+        </div>
+        <div class="report-filters">
+          <select id="report-filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="report-filter-cidade"><option value="">Todas as cidades</option></select>
+          <select id="report-sort">
+            <option value="nome">Ordenar por nome</option>
+            <option value="bairro">Ordenar por bairro</option>
+            <option value="cidade">Ordenar por cidade</option>
+          </select>
+        </div>
+        <div id="report-container"></div>
+      </div>
+    </section>
+
+    <!-- ========================= WA ENVIAR ========================= -->
+    <section id="view-whatsapp-send" class="view" aria-label="Enviar WhatsApp">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Enviar Mensagem</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="btn-wa-send" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Enviar Mensagem
+            </button>
+          </div>
+        </div>
+        <div id="wa-send-content">
+        <div id="wa-config-warning" style="display:none; background:rgba(168,50,74,0.1); border-left:3px solid var(--danger); padding:1rem 1.2rem; color:var(--danger); font-size:0.9rem; margin:1rem 2rem;">
+          ⚠ API do WhatsApp não configurada. Vá em <strong>WhatsApp › Configuração</strong>.
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0; min-height:400px;">
+          <!-- Mensagem -->
+          <div style="padding:1.5rem 2rem; border-right:1px solid var(--line);">
+            <div class="wa-mode-tabs" style="margin-bottom:1.2rem;">
+              <button class="wa-mode-tab active" data-mode="template">Template</button>
+              <button class="wa-mode-tab" data-mode="text">Texto Livre</button>
+              <button class="wa-mode-tab" data-mode="image">Imagem</button>
+            </div>
+            <!-- Template -->
+            <div id="wa-template-fields">
+              <div class="field" style="margin-bottom:1rem;">
+                <label>Template *</label>
+                <select id="wa-template-name" style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px;">
+                  <option value="">— Selecione —</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:1rem;">
+                <label>Idioma</label>
+                <input type="text" id="wa-template-lang" value="pt_BR" style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px;">
+              </div>
+              <div class="field">
+                <label>Variáveis (uma por linha)</label>
+                <textarea id="wa-template-vars" rows="4" style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px; font-family:inherit;"></textarea>
+              </div>
+              <div id="wa-template-vars-buttons" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
+            </div>
+            <!-- Texto -->
+            <div id="wa-text-fields" style="display:none;">
+              <div class="field">
+                <label>Mensagem *</label>
+                <textarea id="wa-text-message" rows="6" style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px; font-family:inherit;" placeholder="Olá {{primeiro_nome}}!"></textarea>
+              </div>
+              <div id="wa-text-vars-buttons" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
+            </div>
+            <!-- Imagem -->
+            <div id="wa-image-fields" style="display:none;">
+              <div class="field" style="margin-bottom:1rem;">
+                <label>URL da Imagem *</label>
+                <input type="url" id="wa-image-url" placeholder="https://..." style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px;">
+              </div>
+              <div class="field">
+                <label>Legenda</label>
+                <textarea id="wa-image-caption" rows="3" style="width:100%; padding:0.5rem; border:1px solid var(--line); border-radius:4px; font-family:inherit;"></textarea>
+              </div>
+              <div id="wa-image-vars-buttons" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.6rem;"></div>
+            </div>
+            <!-- Preview -->
+            <div style="margin-top:1.5rem; padding:1rem; background:#f0f9f0; border-radius:8px;">
+              <div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">Pré-visualização</div>
+              <div id="wa-preview-bubble" class="wa-preview-bubble" style="min-height:40px;"></div>
+            </div>
+          </div>
+          <!-- Destinatários -->
+          <div style="padding:1.5rem 2rem;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem;">
+              <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--navy);">Destinatários <span id="wa-selected-count" style="font-weight:400; color:var(--gold-dark);"></span></div>
+              <div style="display:flex; gap:0.4rem;">
+                <button class="icon-btn" id="btn-wa-select-all" style="font-size:0.78rem;">Todos</button>
+                <button class="icon-btn" id="btn-wa-deselect-all" style="font-size:0.78rem;">Limpar</button>
+              </div>
+            </div>
+            <input type="search" id="wa-recipient-search" placeholder="Buscar eleitor..." style="width:100%; padding:0.5rem 0.8rem; border:1px solid var(--line); border-radius:4px; margin-bottom:0.8rem; font-family:inherit;">
+            <div id="wa-recipient-list" class="recipient-list" style="max-height:320px; overflow-y:auto; border:1px solid var(--line); border-radius:4px;"></div>
+          </div>
+        </div>
+        <!-- Modal progresso -->
+        <div class="modal-overlay" id="wa-progress-modal">
+          <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+              <div class="modal-title" id="wa-progress-title">Enviando...</div>
+            </div>
+            <div class="modal-body" style="padding:1.5rem;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:1rem; font-size:0.88rem;">
+                <span>Progresso: <strong id="wa-progress-current">0</strong> / <strong id="wa-progress-total">0</strong></span>
+                <span>✓ <strong id="wa-progress-success">0</strong> &nbsp; ✗ <strong id="wa-progress-failed">0</strong></span>
+              </div>
+              <div style="height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:0.8rem;">
+                <div id="wa-progress-bar" style="height:100%; width:0%; background:var(--navy); transition:width 0.3s;"></div>
+              </div>
+              <div id="wa-progress-current-name" style="font-size:0.82rem; color:var(--muted); min-height:20px;"></div>
+              <div id="wa-progress-result" style="display:none; margin-top:1rem; padding:0.8rem; border-left:3px solid var(--success); background:var(--success-soft); font-size:0.88rem;"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="wa-progress-close" style="display:none;">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ========================= WA CONFIG ========================= -->
+    <section id="view-whatsapp-config" class="view" aria-label="Configuração WhatsApp">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Configuração da API</div>
+          </div>
+        </div>
+        <div id="wa-config-content" style="padding:1.8rem 2rem;">
+        <div id="wa-config-status" class="wa-config-status err" style="margin-bottom:1.5rem;">
+          <span id="wa-config-status-text">Verificando...</span>
+        </div>
+        <form id="wa-config-form">
+          <div class="fields" style="grid-template-columns:1fr; padding:0; gap:1rem; margin-bottom:1.5rem;">
+            <div class="field">
+              <label>Phone Number ID *</label>
+              <input type="text" id="wa-cfg-phoneId" placeholder="123456789012345" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Access Token *</label>
+              <input type="password" id="wa-cfg-token" placeholder="Token da Meta API" autocomplete="new-password">
+            </div>
+            <div class="field">
+              <label>WABA ID <span class="opt">opcional</span></label>
+              <input type="text" id="wa-cfg-wabaId" placeholder="098765432109876" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Código do País</label>
+              <input type="text" id="wa-cfg-country" value="55" maxlength="3">
+            </div>
+          </div>
+          <div style="display:flex; gap:0.6rem; justify-content:flex-end; padding-top:1rem; border-top:1px solid var(--line);">
+            <button type="submit" class="btn btn-primary">Salvar Configuração</button>
+          </div>
+        </form>
+        <div style="margin-top:2rem;">
+          <h3 style="font-family:'Fraunces',serif; font-size:1.1rem; color:var(--navy); margin-bottom:0.8rem;">Templates Aprovados</h3>
+          <div id="wa-templates-list" style="margin-bottom:1rem;"></div>
+          <form id="wa-template-form" style="display:flex; gap:0.6rem; align-items:flex-end;">
+            <div class="field" style="flex:1; margin:0;">
+              <label>Nome do Template</label>
+              <input type="text" id="wa-tpl-name" placeholder="Ex: convite_evento" autocomplete="off">
+            </div>
+            <div class="field" style="width:100px; margin:0;">
+              <label>Idioma</label>
+              <input type="text" id="wa-tpl-lang" value="pt_BR">
+            </div>
+            <button type="submit" class="btn btn-primary" style="height:41px;">Adicionar</button>
+          </form>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ========================= WA LOG ========================= -->
+    <section id="view-whatsapp-log" class="view" aria-label="Histórico WhatsApp">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Histórico de Envios</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary admin-only" id="btn-wa-clear-log">Limpar Histórico</button>
+          </div>
+        </div>
+        <div id="wa-log-container"></div>
+      </div>
+    </section>
+
+    <!-- ========================= ROBÔS ========================= -->
+    <section id="view-robots" class="view" aria-label="Central de Robôs">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Robôs de IA</div>
+            <div class="panel-title">Central de Robôs</div>
+          </div>
+        </div>
+        <div id="robots-content" style="padding:1.8rem 2rem;">
+        <p style="color:var(--muted); margin-bottom:1.5rem; font-size:0.9rem;">Automatize envios de WhatsApp com os robôs abaixo.</p>
+        <div id="robots-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;"></div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ========================= ANIVERSÁRIOS ========================= -->
+    <section id="view-birthday" class="view" aria-label="Robô de Aniversários">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Robôs de IA</div>
+            <div class="panel-title">Robô de Aniversários</div>
+          </div>
+        </div>
+        <div id="birthday-content" style="padding:1.8rem 2rem;">
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; padding:1rem 1.2rem; background:var(--cream); border:1px solid var(--line); border-radius:4px;">
+          <div style="flex:1;">
+            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:0.3rem;">Status do Robô</div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span id="robot-dot" style="width:10px; height:10px; border-radius:50%; background:var(--line); display:inline-block;"></span>
+              <strong id="robot-state-text">Desligado</strong>
+            </div>
+            <div id="robot-meta" style="font-size:0.82rem; color:var(--muted); margin-top:0.3rem;"></div>
+          </div>
+          <div id="robot-toggle" style="width:48px; height:26px; border-radius:13px; background:var(--line); cursor:pointer; position:relative; transition:background 0.2s;" onclick="this.classList.toggle('on'); var on=this.classList.contains('on'); document.getElementById('robot-state-text').textContent=on?'Ativo':'Desligado'; document.getElementById('robot-dot').style.background=on?'var(--success)':'var(--line)'; var cfg=window.GERobots&&window.GERobots.BDayConfig?window.GERobots.BDayConfig.load():{enabled:false}; cfg.enabled=on; if(window.GERobots&&window.GERobots.BDayConfig) window.GERobots.BDayConfig.save(cfg); window.showToast&&window.showToast(on?'Robô ativado!':'Robô desligado.', on?'success':'');"></div>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+          <h3 style="font-size:1rem; font-weight:600; color:var(--navy); margin-bottom:0.8rem;">🎂 Aniversariantes de Hoje</h3>
+          <div id="birthday-today-container"></div>
+        </div>
+        <div>
+          <h3 style="font-size:1rem; font-weight:600; color:var(--navy); margin-bottom:0.8rem;">Histórico</h3>
+          <div id="birthday-log-container"></div>
+        </div>
+        <div style="margin-top:1.5rem; display:flex; gap:0.6rem; justify-content:flex-end;">
+          <button class="btn btn-secondary" id="btn-birthday-check">Verificar Agora</button>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ========================= REATIVAÇÃO ========================= -->
+    <section id="view-reactivation" class="view" aria-label="Robô de Reativação">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Robôs de IA</div>
+            <div class="panel-title">Robô de Reativação</div>
+          </div>
+        </div>
+        <div id="reactivation-content" style="padding:1.8rem 2rem;">
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; padding:1rem 1.2rem; background:var(--cream); border:1px solid var(--line); border-radius:4px;">
+          <div style="flex:1;">
+            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:0.3rem;">Status do Robô</div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span id="react-dot" style="width:10px; height:10px; border-radius:50%; background:var(--line); display:inline-block;"></span>
+              <strong id="react-state-text">Desligado</strong>
+            </div>
+            <div id="react-meta" style="font-size:0.82rem; color:var(--muted); margin-top:0.3rem;">Identifica eleitores sem contato e envia mensagem automática.</div>
+          </div>
+          <div id="react-toggle" style="width:48px; height:26px; border-radius:13px; background:var(--line); cursor:pointer; position:relative; transition:background 0.2s;" onclick="this.classList.toggle('on'); var on=this.classList.contains('on'); document.getElementById('react-state-text').textContent=on?'Ativo':'Desligado'; document.getElementById('react-dot').style.background=on?'var(--success)':'var(--line)'; var cfg=window.GERobots&&window.GERobots.ReactivationConfig?window.GERobots.ReactivationConfig.load():{enabled:false}; cfg.enabled=on; if(window.GERobots&&window.GERobots.ReactivationConfig) window.GERobots.ReactivationConfig.save(cfg); window.showToast&&window.showToast(on?'Robô ativado!':'Robô desligado.', on?'success':'');"></div>
+        </div>
+        <p style="color:var(--muted); font-size:0.88rem; line-height:1.6;">O robô identifica eleitores que não recebem mensagens WhatsApp há mais de 30 dias e envia uma mensagem de reativação automaticamente.</p>
+        <div style="margin-top:1.5rem; display:flex; gap:0.6rem; justify-content:flex-end;">
+          <button class="btn btn-secondary" id="btn-react-check">Verificar Agora</button>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ========================= USUÁRIOS ========================= -->
+    <section id="view-users" class="view" aria-label="Gestão de usuários">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Administração</div>
+            <div class="panel-title">Usuários do Sistema</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="btn-novo-user">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo Usuário
+            </button>
+          </div>
+        </div>
+        <div id="users-container"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ========================= TOAST ========================= -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ========================= MODAL DETALHES ========================= -->
+<div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detail-modal-title">Detalhes do Eleitor</div>
+      <button class="modal-close" data-close="detail-modal" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="detail-modal">Fechar</button>
+      <button class="btn btn-primary" id="btn-modal-edit">Editar</button>
+      <button class="btn btn-danger" id="btn-modal-delete">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= MODAL USUÁRIO ========================= -->
+<div class="modal-overlay" id="user-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div class="modal-title" id="user-modal-title">Novo Usuário</div>
+      <button class="modal-close" data-close="user-modal" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="user-form" novalidate>
+        <input type="hidden" id="user-id">
+        <div class="fields" style="grid-template-columns:1fr;">
+          <div class="field">
+            <label for="user-nome">Nome Completo *</label>
+            <input type="text" id="user-nome" required maxlength="200" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="user-login">Login *</label>
+            <input type="text" id="user-login" required maxlength="100"
+                   autocomplete="username" spellcheck="false"
+                   autocorrect="off" autocapitalize="none">
+          </div>
+          <div class="field">
+            <label for="user-senha">Senha *</label>
+            <input type="password" id="user-senha" maxlength="200"
+                   autocomplete="new-password" minlength="6">
+            <small id="user-pass-hint" style="font-size:0.78rem; color:var(--muted);">(obrigatório)</small>
+          </div>
+          <div class="field">
+            <label for="user-tipo">Perfil *</label>
+            <select id="user-tipo">
+              <option value="comum">Usuário Comum</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="user-modal">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-user">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= MODAL WA ELEITOR ========================= -->
+<div class="modal-overlay" id="wa-single-modal" role="dialog" aria-modal="true" aria-labelledby="wa-single-modal-title">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="wa-single-modal-title">Enviar WhatsApp</div>
+      <button class="modal-close" data-close="wa-single-modal" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body" id="wa-single-modal-body"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCRIPTS — ORDEM CRÍTICA PARA SEGURANÇA
+     1. security.js (define escapeHtml, sanitização, rate limiting)
+     2. data.js     (repositórios de dados)
+     3. Módulos funcionais
+     4. app.js      (inicialização principal)
+     ============================================================ -->
+
+<!-- Dependências externas (Subresource Integrity para segurança) -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+  integrity="sha512-mmgfmwHbKN9mBVLexRkbxFnhimhOVqpQ3KJaQK8m9m6RLm5bJ5mSDExXs7n6zSBkGwvpVqq4JEGKlGqS3Xcg=="
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer">
+</script>
+
+<!-- Módulos do sistema -->
+<script src="js/security.js"></script>
+<script src="js/data.js"></script>
+<script src="js/whatsapp.js"></script>
+<script src="js/robots.js"></script>
+<script src="js/import.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
