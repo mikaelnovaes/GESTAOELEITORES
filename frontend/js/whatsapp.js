@@ -9,6 +9,17 @@
 
 'use strict';
 
+/* Referências aos módulos globais */
+const escapeHtml    = (s) => window.escapeHtml(s);
+const showToast     = (m, t) => window.showToast(m, t);
+const formatDate    = (d) => window.formatDate?.(d) ?? d;
+const formatDateTime= (d) => window.formatDateTime?.(d) ?? d;
+const Eleitores   = window.Eleitores;
+const WALog       = window.WALog;
+const WAConfig    = window.WAConfig;
+const WATemplates = window.WATemplates;
+
+
 /* ============================================================
    ESTADO LOCAL
    ============================================================ */
