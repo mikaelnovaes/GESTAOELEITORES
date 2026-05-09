@@ -9,6 +9,16 @@
 'use strict';
 
 /* ============================================================
+   REFERÊNCIAS AOS MÓDULOS GLOBAIS (definidos em data.js)
+   ============================================================ */
+const Eleitores   = window.Eleitores;
+const Usuarios    = window.Usuarios;
+const WALog       = window.WALog;
+const WAConfig    = window.WAConfig;
+const WATemplates = window.WATemplates;
+
+
+/* ============================================================
    API CLIENT — todas as chamadas ao backend passam por aqui
    ============================================================ */
 const API = {
@@ -665,7 +675,11 @@ function showToast(msg, type = '') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.className = '', 3500);
 }
-window.showToast = showToast;
+window.showToast     = showToast;
+window.escapeHtml    = (s) => window.GESecurity?.Sanitizer?.escapeHtml(s) ?? String(s ?? '');
+window.switchView    = switchView;
+window.formatDate    = formatDate;
+window.formatDateTime = formatDateTime;
 
 /* ============================================================
    SINCRONIZAÇÃO COM API — carrega dados do servidor no start
