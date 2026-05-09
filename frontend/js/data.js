@@ -366,7 +366,7 @@ const WATemplates = {
   all()  { return this.load(); },
 
   add(nome, idioma) {
-    const sanitize = window.GESecurity?.Sanitizer?.cleanInput || (v) => v;
+    const sanitize = window.GESecurity?.Sanitizer?.cleanInput || ((v) => v);
     nome = sanitize(nome, 100);
     if (!nome) throw new Error('Nome do template inválido.');
 
