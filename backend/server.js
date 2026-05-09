@@ -62,8 +62,22 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin && process.env.NODE_ENV !== 'production') return cb(null, true);
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    // Sem origin = requisição do mesmo servidor (frontend servido pelo Express)
+    // Isso acontece no Render/Railway quando frontend e backend são o mesmo serviço
+    if (!origin) return cb(null, true);
+
+    // Origin explicitamente na whitelist
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+
+    // Permitir qualquer subdomínio .onrender.com ou .up.railway.app
+    if (
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.up.railway.app')
+    ) return cb(null, true);
+
+    // Em desenvolvimento, permitir localhost
+    if (process.env.NODE_ENV !== 'production') return cb(null, true);
+
     cb(new Error('CORS: origem não permitida'));
   },
   credentials: true,
