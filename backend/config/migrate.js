@@ -224,14 +224,16 @@ async function runMigration() {
   } catch (err) {
     console.error('❌ Falha na migração:', err.message);
     throw err;
-  } finally {
-    await db.end();
   }
+  // NOTA: NÃO fechar o pool aqui — o servidor continua usando após a migração
 }
 
 // Executar diretamente se chamado via CLI: node migrate.js
+// Neste caso sim, fecha o pool e encerra o processo
 if (require.main === module) {
-  runMigration().then(() => process.exit(0)).catch(() => process.exit(1));
+  runMigration()
+    .then(async () => { await db.end(); process.exit(0); })
+    .catch(async () => { await db.end(); process.exit(1); });
 }
 
 module.exports = { runMigration, MIGRATION };
