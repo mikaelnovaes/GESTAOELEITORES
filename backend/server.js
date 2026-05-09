@@ -128,13 +128,12 @@ if (process.env.NODE_ENV !== 'test') {
    FRONTEND ESTÁTICO
    ============================================================ */
 app.use(express.static(path.join(__dirname, '..', 'frontend'), {
-maxAge: 0,
-Cache-Control: 'no-cache, no-store, must-revalidate',
-  etag: true,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    }
+  maxAge: 0,
+  etag: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
   }
 }));
 
