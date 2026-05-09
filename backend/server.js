@@ -128,7 +128,8 @@ if (process.env.NODE_ENV !== 'test') {
    FRONTEND ESTÁTICO
    ============================================================ */
 app.use(express.static(path.join(__dirname, '..', 'frontend'), {
-  maxAge: '1d',
+maxAge: 0,
+Cache-Control: 'no-cache, no-store, must-revalidate',
   etag: true,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
