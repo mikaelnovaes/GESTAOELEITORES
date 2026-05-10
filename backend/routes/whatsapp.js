@@ -90,10 +90,27 @@ router.post('/templates',
   async (req, res) => {
     if (hasErrors(req, res)) return;
     try {
+      const nome = String(req.body.nome || '').trim();
+
+const r = await db.query(
+  `INSERT INTO whatsapp_templates (nome, idioma)
+   VALUES ($1, $2)
+   RETURNING id`,
+  [nome, req.body.idioma || 'pt_BR']
+);    
+      /*
+
+- CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.
+O banco criou whatsapp_templates.nome como UNIQUE, mas a exclusão faz apenas ativo = FALSE. 
+Resultado: o template some da tela, mas o nome continua bloqueado no banco.
+Com isso, template excluído não bloqueia novo template com mesmo nome.
+
       const r = await db.query(
         `INSERT INTO whatsapp_templates (nome, idioma) VALUES ($1, $2) RETURNING id`,
         [req.body.nome, req.body.idioma || 'pt_BR']
-      );
+      );*/
+
+      
       res.status(201).json(r.rows[0]);
     } catch (err) {
       if (err.code === '23505') return res.status(409).json({ error: 'Template já cadastrado.' });
@@ -289,17 +306,4 @@ function buildMessageBody(phone, mode, payload, eleitor) {
 module.exports = router;
 
 
-/*
-- CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE O AJUSTE ABAIXO.
-O banco criou whatsapp_templates.nome como UNIQUE, mas a exclusão faz apenas ativo = FALSE. 
-Resultado: o template some da tela, mas o nome continua bloqueado no banco.
-Com isso, template excluído não bloqueia novo template com mesmo nome.
-*/
-const nome = String(req.body.nome || '').trim();
 
-const r = await db.query(
-  `INSERT INTO whatsapp_templates (nome, idioma)
-   VALUES ($1, $2)
-   RETURNING id`,
-  [nome, req.body.idioma || 'pt_BR']
-);
