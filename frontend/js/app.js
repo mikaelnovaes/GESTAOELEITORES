@@ -310,6 +310,10 @@ document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
    FORMULÁRIO DE ELEITOR
    ============================================================ */
 document.getElementById('btn-new-eleitor')?.addEventListener('click', () => { openEleitorForm(null); switchView('new'); });
+/* - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE. 
+document.getElementById('btn-novo-user')?.addEventListener('click', () => openEleitorForm(null));
+Isso corrige o problema de “criar usuário” cair no formulário de eleitor.
+*/
 document.getElementById('btn-novo-user')?.addEventListener('click',    () => openUserModal(null));
 document.getElementById('btn-cancel-form')?.addEventListener('click',  () => switchView('list'));
 
@@ -700,6 +704,10 @@ window.formatDateTime = formatDateTime;
 /* ============================================================
    SINCRONIZAÇÃO COM API — carrega dados do servidor no start
    ============================================================ */
+/* - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.
+(O bug atual é que o sistema só substitui o cache quando data.data.length existe. Se o banco estiver vazio 
+ou se você excluir via SQL, ele não limpa o cache local, então dados antigos continuam aparecendo.)
+
 async function syncFromAPI() {
   try {
     const data = await API.get('/eleitores?pageSize=200');
@@ -722,6 +730,37 @@ async function syncFromAPI() {
     console.warn('Sync com API falhou — usando dados locais:', err.message);
   }
 }
+*/
+async function syncFromAPI() {
+  try {
+    const pageSize = 200;
+    const first = await API.get(`/eleitores?page=1&pageSize=${pageSize}`);
+
+    let allRows = Array.isArray(first.data) ? first.data : [];
+    const totalPages = Number(first.pages || 1);
+
+    for (let p = 2; p <= totalPages; p++) {
+      const more = await API.get(`/eleitores?page=${p}&pageSize=${pageSize}`);
+      if (Array.isArray(more.data)) {
+        allRows = allRows.concat(more.data);
+      }
+    }
+
+    Eleitores.save(allRows);
+
+    if (typeof renderList === 'function') renderList();
+    if (typeof renderReport === 'function') renderReport();
+
+    return allRows;
+  } catch (err) {
+    console.warn('Sync com API falhou:', err.message);
+    return Eleitores.all();
+  }
+}
+
+window.syncFromAPI = syncFromAPI;
+window.API = API;
+
 
 /* ============================================================
    INICIALIZAÇÃO
