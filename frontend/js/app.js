@@ -350,6 +350,21 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
   };
 
   try {
+       if (id) {
+  await API.put(`/eleitores/${id}`, data);
+  showToast('Eleitor atualizado com sucesso.', 'success');
+} else {
+  await API.post('/eleitores', data);
+  showToast('Eleitor cadastrado com sucesso.', 'success');
+}
+
+await syncFromAPI();
+     
+    /* - - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.
+
+    (Hoje, ao criar eleitor, o frontend salva no PostgreSQL, mas depois cria outro ID local via Eleitores.insert(). 
+    Isso quebra robôs, WhatsApp, edição e exclusão.)
+    
     if (id) {
       // Atualizar via API e também no localStorage (cache)
       await API.put(`/eleitores/${id}`, data);
@@ -360,7 +375,7 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
       const created = await API.post('/eleitores', data);
       Eleitores.insert({ ...data, id: created.id });
       showToast('Eleitor cadastrado com sucesso.', 'success');
-    }
+    }*/
 
     document.getElementById('eleitor-form').reset();
     document.getElementById('eleitor-id').value = '';
@@ -393,11 +408,20 @@ function openEleitorForm(eleitor) {
 
 async function deleteEleitor(id) {
   if (!confirm('Excluir este eleitor? Esta ação não pode ser desfeita.')) return;
-  try {
+  try { 
+     await API.delete(`/eleitores/${id}`);
+showToast('Eleitor excluído.', 'success');
+await syncFromAPI();
+     
+     /* - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.
+
+  (Hoje, ao criar eleitor, o frontend salva no PostgreSQL, mas depois cria outro ID local via Eleitores.insert(). 
+  Isso quebra robôs, WhatsApp, edição e exclusão.)
+   
     await API.delete(`/eleitores/${id}`);
     Eleitores.delete(id);
     showToast('Eleitor excluído.', 'success');
-    renderList();
+    renderList();*/
   } catch (err) {
     showToast(err.message || 'Erro ao excluir.', 'error');
   }
