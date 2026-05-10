@@ -83,7 +83,7 @@ async function robotCheck(force = false) {
     try {
       let payload, mode;
       if (cfg.mode === 'text') {
-        mode = 'text'; payload = { text: cfg.text_message };
+        mode = 'text'; payload = { message: cfg.text_message }; /* payload = { text: cfg.text_message }; - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE. */
       } else {
         mode = 'template';
         payload = {
@@ -295,7 +295,8 @@ async function reactivationRun(force = false) {
     try {
       let payload;
       if (mode === 'text') {
-        payload = { text: cfg.text_message };
+         payload = { message: cfg.text_message };
+        /*payload = { text: cfg.text_message }; - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.*/
       } else {
         payload = {
           templateName: cfg.template_name,
