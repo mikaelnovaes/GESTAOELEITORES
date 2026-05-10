@@ -320,6 +320,64 @@ function renderPreview() {
 /* ============================================================
    CONFIRMAÇÃO E RESET
    ============================================================ */
+
+async function confirmImport() {
+  if (!Object.values(importState.mapping).includes('nome')) {
+    showToast('É obrigatório mapear a coluna "Nome".', 'error');
+    return;
+  }
+
+  const records = importState.rows
+    .map(rowToRecord)
+    .filter(r => r.nome && r.nome.trim());
+
+  if (!records.length) {
+    showToast('Nenhum registro válido para importar.', 'error');
+    return;
+  }
+
+  if (!confirm(`Confirmar importação de ${records.length} eleitor(es)?`)) return;
+
+  try {
+    const token = sessionStorage.getItem('ge_jwt_token');
+
+    const response = await fetch('/api/eleitores/importar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ records })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Erro ao importar para o banco de dados.');
+    }
+
+    showToast(
+      `${result.imported} eleitor(es) importado(s). ${result.failed || 0} falha(s).`,
+      'success'
+    );
+
+    resetImport();
+
+    if (window.syncFromAPI) {
+      await window.syncFromAPI();
+    }
+
+    if (typeof switchView === 'function') {
+      switchView('list');
+    }
+  } catch (e) {
+    showToast('Erro ao importar: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+
+/**
 async function confirmImport() {
   if (!Object.values(importState.mapping).includes('nome')) {
     showToast('É obrigatório mapear a coluna "Nome".', 'error');
@@ -357,3 +415,4 @@ function resetImport() {
 
 // Expõe para o app.js
 window.GEImport = { initImport, resetImport };
+*/
