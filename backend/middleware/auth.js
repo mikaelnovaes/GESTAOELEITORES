@@ -19,11 +19,28 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 
 function generateToken(user) {
   return jwt.sign(
+    {
+      id: user.id,
+      tipo: user.tipo,
+      nome: user.nome,
+      tenant_id: user.tenant_id
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES, issuer: 'gestao-eleitores' }
+  );
+}
+
+/* - - CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE.
+
+function generateToken(user) {
+  return jwt.sign(
     { id: user.id, tipo: user.tipo, nome: user.nome },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES, issuer: 'gestao-eleitores' }
   );
 }
+
+*/
 
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
