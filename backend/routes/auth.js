@@ -28,7 +28,7 @@ router.post('/login',
 
     try {
       const result = await db.query(
-        `SELECT id, nome, login, senha_hash, tipo, ativo,
+        `SELECT id, nome, login, senha_hash, tipo, ativo, tenant_id,
                 tentativas_login, bloqueado_ate
          FROM usuarios WHERE login = $1 LIMIT 1`,
         [login.toLowerCase()]
