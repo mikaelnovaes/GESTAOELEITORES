@@ -287,3 +287,19 @@ function buildMessageBody(phone, mode, payload, eleitor) {
 }
 
 module.exports = router;
+
+
+/*
+- CORREÇÃO DE ACORDO COM CHATGPT PLUS - CLAUDE FAVOR VERIFICAR SE PROCEDE O AJUSTE ABAIXO.
+O banco criou whatsapp_templates.nome como UNIQUE, mas a exclusão faz apenas ativo = FALSE. 
+Resultado: o template some da tela, mas o nome continua bloqueado no banco.
+Com isso, template excluído não bloqueia novo template com mesmo nome.
+*/
+const nome = String(req.body.nome || '').trim();
+
+const r = await db.query(
+  `INSERT INTO whatsapp_templates (nome, idioma)
+   VALUES ($1, $2)
+   RETURNING id`,
+  [nome, req.body.idioma || 'pt_BR']
+);
