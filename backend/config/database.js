@@ -16,8 +16,8 @@ const { Pool } = require('pg');
    Railway/Render → variável DATABASE_URL gerada automaticamente
    ============================================================ */
 const pool = new Pool({
- // connectionString: process.env.DATABASE_URL,
-   connectionString: process.env.postgresql://gestao_eleitores_db_user:u7KyEncSDj49214CaSOBNOJ5eBeK2x5Q@dpg-d7vnl33eo5us73ettk7g-a/gestao_eleitores_db,
+  connectionString: process.env.DATABASE_URL,
+  // connectionString: process.env.postgresql://gestao_eleitores_db_user:u7KyEncSDj49214CaSOBNOJ5eBeK2x5Q@dpg-d7vnl33eo5us73ettk7g-a/gestao_eleitores_db,
 
   // SSL obrigatório em produção (Railway e Render exigem)
   ssl: process.env.NODE_ENV === 'production'
