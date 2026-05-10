@@ -310,7 +310,7 @@ document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
    FORMULÁRIO DE ELEITOR
    ============================================================ */
 document.getElementById('btn-new-eleitor')?.addEventListener('click', () => { openEleitorForm(null); switchView('new'); });
-document.getElementById('btn-novo-user')?.addEventListener('click',    () => openEleitorForm(null));
+document.getElementById('btn-novo-user')?.addEventListener('click',    () => openUserModal(null));
 document.getElementById('btn-cancel-form')?.addEventListener('click',  () => switchView('list'));
 
 document.getElementById('btn-save-eleitor')?.addEventListener('click', () => {
