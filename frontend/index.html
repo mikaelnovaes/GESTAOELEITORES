@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+
+  <title>Gestão de Eleitores</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ========================= LOGIN ========================= -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-mark">G</div>
+      <h1>Gestão de Eleitores</h1>
+      <p>Sistema Eleitoral</p>
+    </div>
+    <div class="login-error" id="login-error" role="alert"></div>
+    <form class="login-form" id="login-form" novalidate>
+      <div class="field">
+        <label for="login-user">Usuário</label>
+        <input type="text" id="login-user" name="username" autocomplete="username" required maxlength="100">
+      </div>
+      <div class="field">
+        <label for="login-pass">Senha</label>
+        <input type="password" id="login-pass" name="password" autocomplete="current-password" required maxlength="200">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:0.75rem;">Entrar</button>
+    </form>
+    <div class="login-hint">
+      <span class="security-badge">🔒 Conexão segura</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= APP ========================= -->
+<div class="app-wrapper" id="app">
+
+  <aside>
+    <div class="sidebar-brand">
+      <div class="brand-mark">G</div>
+      <div class="brand-text">
+        <h2>Gestão de Eleitores</h2>
+        <p>Sistema Eleitoral</p>
+      </div>
+    </div>
+    <nav id="main-nav">
+      <div class="nav-section">Eleitores</div>
+      <button class="nav-btn active" data-view="list">Todos os Eleitores</button>
+      <button class="nav-btn" data-view="new">Novo Cadastro</button>
+      <button class="nav-btn" data-view="import">Importar Excel</button>
+      <button class="nav-btn" data-view="reports">Relatórios</button>
+
+      <div class="nav-section">WhatsApp</div>
+      <button class="nav-btn" data-view="whatsapp-send">Enviar Mensagem</button>
+      <button class="nav-btn admin-only" data-view="whatsapp-config" style="display:none">Configurar API</button>
+      <button class="nav-btn" data-view="whatsapp-log">Histórico</button>
+
+      <div class="nav-section">Automação</div>
+      <button class="nav-btn" data-view="robots">Central de Robôs</button>
+      <button class="nav-btn" data-view="birthday">Aniversários</button>
+      <button class="nav-btn" data-view="reactivation">Reativação</button>
+
+      <div class="nav-section admin-only" style="display:none">Administração</div>
+      <button class="nav-btn admin-only" data-view="users" style="display:none">Usuários</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-name" id="footer-user-name">—</div>
+        <div class="user-role" id="footer-user-role">—</div>
+      </div>
+      <button class="logout-btn" id="logout-btn" title="Sair">Sair</button>
+    </div>
+  </aside>
+
+  <main id="main-content">
+
+    <!-- LISTA -->
+    <section id="view-list" class="view active">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title">Eleitores Registrados</div>
+          </div>
+          <div class="header-actions">
+            <div class="stat"><div class="stat-number" id="stat-total">0</div><div class="stat-label">Total</div></div>
+            <button class="btn btn-secondary" id="btn-export-csv">Exportar CSV</button>
+            <button class="btn btn-secondary" id="btn-check-duplicates">Duplicatas</button>
+            <button class="btn admin-only" id="btn-purge-all" style="display:none;background:var(--danger);color:white;border:1px solid var(--danger);" title="Excluir TODOS os eleitores deste ambiente (irreversível)">Excluir Todos</button>
+            <button class="btn btn-primary" id="btn-new-eleitor">+ Novo Eleitor</button>
+          </div>
+        </div>
+        <div class="filters">
+          <input type="search" id="filter-nome" placeholder="Buscar por nome..." maxlength="200">
+          <select id="filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="filter-cidade"><option value="">Todas as cidades</option></select>
+          <button class="btn btn-secondary" id="btn-clear-filters">Limpar</button>
+        </div>
+        <div id="list-container"></div>
+      </div>
+    </section>
+
+    <!-- NOVO / EDITAR -->
+    <section id="view-new" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title" id="form-title">Novo Eleitor</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-cancel-form">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-eleitor">Salvar</button>
+          </div>
+        </div>
+        <form id="eleitor-form" novalidate>
+          <input type="hidden" id="eleitor-id">
+          <div class="fields">
+            <div class="field full"><label for="f-nome">Nome Completo *</label><input type="text" id="f-nome" required maxlength="200"></div>
+            <div class="field"><label for="f-nascimento">Data de Nascimento</label><input type="date" id="f-nascimento"></div>
+            <div class="field"><label for="f-telefone">Telefone (WhatsApp)</label><input type="tel" id="f-telefone" maxlength="20" placeholder="11 99999-9999"></div>
+            <div class="field full"><label for="f-email">E-mail</label><input type="email" id="f-email" maxlength="200"></div>
+            <div class="field"><label for="f-endereco">Endereço</label><input type="text" id="f-endereco" maxlength="300"></div>
+            <div class="field"><label for="f-numero">Número</label><input type="text" id="f-numero" maxlength="20"></div>
+            <div class="field"><label for="f-bairro">Bairro</label><input type="text" id="f-bairro" maxlength="100"></div>
+            <div class="field"><label for="f-cidade">Cidade</label><input type="text" id="f-cidade" maxlength="100"></div>
+            <div class="field"><label for="f-titulo">Título de Eleitor</label><input type="text" id="f-titulo" maxlength="20"></div>
+            <div class="field"><label for="f-secao">Seção</label><input type="text" id="f-secao" maxlength="10"></div>
+            <div class="field full"><label for="f-escola">Local de Votação</label><input type="text" id="f-escola" maxlength="200"></div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- IMPORTAR -->
+    <section id="view-import" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title">Importar Planilha</div>
+          </div>
+        </div>
+        <div style="padding:1.5rem 2rem;">
+          <div class="import-step" id="step-upload">
+            <div class="import-step-title"><span class="import-step-num">1</span> Selecionar Arquivo</div>
+            <div class="import-step-desc">Excel (.xlsx, .xls) ou CSV — máximo 5MB</div>
+            <div id="dropzone" class="dropzone" tabindex="0">
+              <p style="margin:0;color:var(--muted);">Clique ou arraste o arquivo aqui</p>
+              <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none">
+            </div>
+            <div id="file-info" style="margin-top:0.6rem;font-size:0.88rem;"></div>
+          </div>
+          <div class="import-step" id="step-mapping" style="display:none;">
+            <div class="import-step-title"><span class="import-step-num">2</span> Mapeamento</div>
+            <div id="mapping-grid" class="mapping-grid"></div>
+          </div>
+          <div class="import-step" id="step-preview" style="display:none;">
+            <div class="import-step-title"><span class="import-step-num">3</span> Pré-visualização</div>
+            <div id="preview-info" style="margin-bottom:0.5rem;font-size:0.88rem;"></div>
+            <div id="preview-table"></div>
+            <div style="margin-top:1rem;display:flex;gap:0.6rem;justify-content:flex-end;">
+              <button class="btn btn-secondary" id="btn-import-cancel">Cancelar</button>
+              <button class="btn btn-primary" id="btn-import-confirm">Confirmar Importação</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RELATÓRIOS -->
+    <section id="view-reports" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Análise</div>
+            <div class="panel-title">Relatórios</div>
+          </div>
+          <div class="header-actions">
+            <span id="report-count" style="color:var(--muted);font-size:0.88rem;">0 registros</span>
+            <button class="btn btn-secondary" id="btn-print-report">Imprimir</button>
+          </div>
+        </div>
+        <div class="filters">
+          <select id="report-filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="report-filter-cidade"><option value="">Todas as cidades</option></select>
+          <select id="report-sort">
+            <option value="nome">Ordenar por Nome</option>
+            <option value="bairro">Ordenar por Bairro</option>
+            <option value="cidade">Ordenar por Cidade</option>
+          </select>
+        </div>
+        <div id="report-container"></div>
+      </div>
+    </section>
+
+    <!-- WA SEND -->
+    <section id="view-whatsapp-send" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Enviar Mensagem</div>
+          </div>
+        </div>
+        <div id="wa-config-warning" style="display:none;margin:1rem 2rem;padding:0.8rem 1.2rem;background:var(--danger-soft);color:var(--danger);border-radius:4px;font-size:0.88rem;">
+          ⚠ Configure a API do WhatsApp em Configurar API antes de enviar.
+        </div>
+        <div style="padding:1.5rem 2rem;">
+          <h3 style="margin-bottom:0.8rem;">1. Selecione os destinatários</h3>
+          <div id="wa-recipients-list"></div>
+          <h3 style="margin:1.5rem 0 0.8rem;">2. Escolha o modo</h3>
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <button class="btn btn-secondary active" data-wa-mode="template">Template</button>
+            <button class="btn btn-secondary" data-wa-mode="text">Texto Livre</button>
+            <button class="btn btn-secondary" data-wa-mode="image">Imagem + Legenda</button>
+          </div>
+          <div id="wa-mode-template">
+            <div class="field"><label>Template</label><select id="wa-template-name"></select></div>
+            <div class="field"><label>Idioma</label><input type="text" id="wa-template-lang" value="pt_BR"></div>
+            <div class="field"><label>Variáveis (uma por linha)</label><textarea id="wa-template-vars" rows="3" placeholder="{{primeiro_nome}}"></textarea></div>
+          </div>
+          <div id="wa-mode-text" style="display:none;">
+            <div class="field"><label>Mensagem</label><textarea id="wa-text-message" rows="5" placeholder="Use {{primeiro_nome}}, {{cidade}}..."></textarea></div>
+          </div>
+          <div id="wa-mode-image" style="display:none;">
+            <div class="field"><label>URL da Imagem</label><input type="url" id="wa-image-url"></div>
+            <div class="field"><label>Legenda</label><textarea id="wa-image-caption" rows="3"></textarea></div>
+          </div>
+          <div style="margin-top:1.5rem;display:flex;gap:0.6rem;justify-content:flex-end;">
+            <button class="btn btn-primary" id="wa-send-btn">Enviar Mensagens</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WA CONFIG -->
+    <section id="view-whatsapp-config" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Configurar API</div>
+          </div>
+        </div>
+        <div style="padding:1.5rem 2rem;">
+          <div id="wa-config-status" class="wa-config-status">
+            <p id="wa-config-status-text">Carregando…</p>
+          </div>
+          <form id="wa-config-form" style="display:grid;gap:1rem;margin-top:1rem;">
+            <div class="field"><label>Phone ID</label><input type="text" id="wa-cfg-phoneId" maxlength="50"></div>
+            <div class="field"><label>Access Token</label><input type="password" id="wa-cfg-token" placeholder="Deixe em branco para manter o atual" maxlength="500"></div>
+            <div class="field"><label>WABA ID</label><input type="text" id="wa-cfg-wabaId" maxlength="50"></div>
+            <div class="field"><label>Código do País</label><input type="text" id="wa-cfg-country" maxlength="5" value="55"></div>
+            <div style="display:flex;gap:0.6rem;justify-content:flex-end;">
+              <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+          </form>
+          <h3 style="margin-top:2rem;">Templates Aprovados</h3>
+          <div id="wa-templates-list" style="margin-bottom:1rem;"></div>
+          <form id="wa-template-form" style="display:flex;gap:0.6rem;align-items:flex-end;">
+            <div class="field" style="flex:1;margin:0;"><label>Nome do Template</label><input type="text" id="wa-tpl-name" placeholder="ex: convite_evento"></div>
+            <div class="field" style="width:100px;margin:0;"><label>Idioma</label><input type="text" id="wa-tpl-lang" value="pt_BR"></div>
+            <button type="submit" class="btn btn-primary" style="height:41px;">Adicionar</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- WA LOG -->
+    <section id="view-whatsapp-log" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">WhatsApp</div>
+            <div class="panel-title">Histórico de Envios</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary admin-only" id="btn-wa-clear-log" style="display:none;">Limpar Histórico</button>
+          </div>
+        </div>
+        <div id="wa-log-container"></div>
+      </div>
+    </section>
+
+    <!-- ROBÔS -->
+    <section id="view-robots" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Automação</div>
+            <div class="panel-title">Central de Robôs</div>
+          </div>
+        </div>
+        <div style="padding:1.5rem 2rem;">
+          <div id="robots-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANIVERSÁRIOS -->
+    <section id="view-birthday" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Robôs de IA</div>
+            <div class="panel-title">Robô de Aniversários</div>
+          </div>
+        </div>
+        <div id="birthday-content" style="padding:1.8rem 2rem;"></div>
+      </div>
+    </section>
+
+    <!-- REATIVAÇÃO -->
+    <section id="view-reactivation" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Robôs de IA</div>
+            <div class="panel-title">Robô de Reativação</div>
+          </div>
+        </div>
+        <div id="reactivation-content" style="padding:1.8rem 2rem;"></div>
+      </div>
+    </section>
+
+    <!-- USUÁRIOS -->
+    <section id="view-users" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Administração</div>
+            <div class="panel-title">Usuários do Ambiente</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="btn-novo-user">+ Novo Usuário</button>
+          </div>
+        </div>
+        <div id="users-container"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ========================= MODAIS ========================= -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Detalhes do Eleitor</div>
+      <button class="modal-close" data-close="detail-modal">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="detail-modal">Fechar</button>
+      <button class="btn btn-primary" id="btn-modal-edit">Editar</button>
+      <button class="btn btn-danger" id="btn-modal-delete">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="user-modal">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-header">
+      <div class="modal-title" id="user-modal-title">Novo Usuário</div>
+      <button class="modal-close" data-close="user-modal">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="user-form" novalidate>
+        <input type="hidden" id="user-id">
+        <div class="fields" style="grid-template-columns:1fr;">
+          <div class="field"><label for="user-nome">Nome *</label><input type="text" id="user-nome" required maxlength="200"></div>
+          <div class="field"><label for="user-login">Login *</label><input type="text" id="user-login" required maxlength="100" pattern="[a-z0-9._-]+"></div>
+          <div class="field">
+            <label for="user-senha">Senha</label>
+            <input type="password" id="user-senha" maxlength="200">
+            <small id="user-pass-hint" style="font-size:0.78rem;color:var(--muted);">(mínimo 8 caracteres)</small>
+          </div>
+          <div class="field">
+            <label for="user-tipo">Perfil *</label>
+            <select id="user-tipo">
+              <option value="comum">Usuário Comum</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="user-modal">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-user">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dup-modal">
+  <div class="modal" style="max-width:900px;">
+    <div class="modal-header">
+      <div class="modal-title">Verificação de Duplicatas</div>
+      <button class="modal-close" data-close="dup-modal">×</button>
+    </div>
+    <div class="modal-body" id="dup-modal-body"></div>
+    <div class="modal-footer" id="dup-modal-footer">
+      <button class="btn btn-secondary" data-close="dup-modal">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="wa-progress-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title" id="wa-progress-title">Enviando...</div>
+    </div>
+    <div class="modal-body">
+      <div id="wa-progress-current-name" style="font-size:0.88rem;color:var(--muted);margin-bottom:0.6rem;"></div>
+      <div style="background:var(--cream);border-radius:4px;height:8px;overflow:hidden;margin-bottom:0.6rem;">
+        <div id="wa-progress-bar" style="height:100%;background:var(--success);width:0%;transition:width 0.2s;"></div>
+      </div>
+      <div style="font-size:0.85rem;">
+        <span id="wa-progress-current">0</span> de <span id="wa-progress-total">0</span> ·
+        <span style="color:var(--success);"><span id="wa-progress-success">0</span> ok</span> ·
+        <span style="color:var(--danger);"><span id="wa-progress-failed">0</span> falha</span>
+      </div>
+      <div id="wa-progress-result" style="display:none;margin-top:0.8rem;padding:0.6rem;border-left:3px solid var(--success);background:var(--cream);font-size:0.85rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="wa-progress-close" style="display:none;">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/security.js?v=5"></script>
+<script src="js/data.js?v=5"></script>
+<script src="js/whatsapp.js?v=5"></script>
+<script src="js/robots.js?v=5"></script>
+<script src="js/import.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+</body>
+</html>
