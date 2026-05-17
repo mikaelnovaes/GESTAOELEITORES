@@ -45,7 +45,7 @@ router.post('/login',
            VALUES (NULL, $1, 'LOGIN_FAIL_NOT_FOUND', $2, $3)`,
           [loginInput, ip, ua]
         );
-        return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+        return res.status(401).json({ error: 'Login não encontrado. Verifique o nome de usuário.' });
       }
 
       const u = r.rows[0];
