@@ -87,7 +87,7 @@ const API = {
 
     const res = await fetch('/api' + path, { ...options, headers });
 
-    if (res.status === 401) {
+    if (res.status === 401 && token) {
       clearSession();
       showLogin();
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -97,7 +97,7 @@ const API = {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   },
-
+   
   get:    (path)       => API.fetch(path),
   post:   (path, body) => API.fetch(path, { method: 'POST',   body: JSON.stringify(body || {}) }),
   put:    (path, body) => API.fetch(path, { method: 'PUT',    body: JSON.stringify(body || {}) }),
@@ -558,7 +558,8 @@ document.getElementById('btn-modal-delete')?.addEventListener('click', async (ev
 /* ============================================================
    RELATÓRIO (mantido da v3.0)
    ============================================================ */
-function renderReport() {
+unction renderReport() {
+  const nomeEl    = document.getElementById('report-filter-nome');
   const bairroEl  = document.getElementById('report-filter-bairro');
   const cidadeEl  = document.getElementById('report-filter-cidade');
   const sortEl    = document.getElementById('report-sort');
@@ -574,7 +575,8 @@ function renderReport() {
   if (bairroEl) bairroEl.innerHTML = '<option value="">Todos os bairros</option>' + bairros.map(b => `<option value="${escapeHtml(b)}" ${b === bairroVal ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('');
   if (cidadeEl) cidadeEl.innerHTML = '<option value="">Todas as cidades</option>' + cidades.map(c => `<option value="${escapeHtml(c)}" ${c === cidadeVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
 
-  const filtered = applyFilters(all, '', bairroEl?.value, cidadeEl?.value);
+  const nomeVal  = nomeEl?.value || '';
+  const filtered = applyFilters(all, nomeVal, bairroEl?.value, cidadeEl?.value);
   const sortKey  = sortEl?.value || 'nome';
   const sorted   = [...filtered].sort((a, b) => (a[sortKey] || '').localeCompare(b[sortKey] || '', 'pt-BR'));
 
@@ -600,9 +602,27 @@ function renderReport() {
 }
 window.renderReport = renderReport;
 
+
+
 [document.getElementById('report-filter-bairro'),
  document.getElementById('report-filter-cidade'),
  document.getElementById('report-sort')].forEach(el => el?.addEventListener('change', renderReport));
+
+// Busca por nome em tempo real
+document.getElementById('report-filter-nome')?.addEventListener('input', renderReport);
+
+// Botão Limpar filtros
+document.getElementById('btn-clear-report-filters')?.addEventListener('click', () => {
+  const nomeEl   = document.getElementById('report-filter-nome');
+  const bairroEl = document.getElementById('report-filter-bairro');
+  const cidadeEl = document.getElementById('report-filter-cidade');
+  const sortEl   = document.getElementById('report-sort');
+  if (nomeEl)   nomeEl.value   = '';
+  if (bairroEl) bairroEl.value = '';
+  if (cidadeEl) cidadeEl.value = '';
+  if (sortEl)   sortEl.value   = 'nome';
+  renderReport();
+});
 
 document.getElementById('btn-print-report')?.addEventListener('click', () => window.print());
 
@@ -626,18 +646,62 @@ document.getElementById('btn-export-csv')?.addEventListener('click', () => {
 /* ============================================================
    EXCLUSÃO EM MASSA — 3 confirmações + senha
    ============================================================ */
-document.getElementById('btn-purge-all')?.addEventListener('click', async () => {
-  if (!confirm('⚠️ Isso vai EXCLUIR TODOS OS ELEITORES deste ambiente. Continuar?')) return;
-  const conf = prompt('Para confirmar, digite exatamente: EXCLUIR-TUDO');
-  if (conf !== 'EXCLUIR-TUDO') { showToast('Confirmação inválida.', 'error'); return; }
-  const senha = prompt('Digite sua senha para confirmar:');
-  if (!senha) { showToast('Senha obrigatória.', 'error'); return; }
+document.getElementById('btn-purge-all')?.addEventListener('click', () => {
+  // Reseta o modal a cada abertura
+  const modal = document.getElementById('purge-modal');
+  if (!modal) return;
+  document.getElementById('purge-confirm-input').value = '';
+  document.getElementById('purge-password-input').value = '';
+  document.getElementById('purge-error').style.display = 'none';
+  document.getElementById('btn-purge-confirm').disabled = true;
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('purge-confirm-input').focus(), 100);
+});
+
+// Habilita o botão "Excluir" apenas quando o usuário digita EXCLUIR-TUDO E coloca senha
+function checkPurgeReady() {
+  const conf  = document.getElementById('purge-confirm-input')?.value.trim();
+  const senha = document.getElementById('purge-password-input')?.value;
+  const btn   = document.getElementById('btn-purge-confirm');
+  if (btn) btn.disabled = !(conf === 'EXCLUIR-TUDO' && senha && senha.length > 0);
+}
+document.getElementById('purge-confirm-input')?.addEventListener('input', checkPurgeReady);
+document.getElementById('purge-password-input')?.addEventListener('input', checkPurgeReady);
+
+document.getElementById('btn-purge-confirm')?.addEventListener('click', async () => {
+  const conf  = document.getElementById('purge-confirm-input').value.trim();
+  const senha = document.getElementById('purge-password-input').value;
+  const errEl = document.getElementById('purge-error');
+  const btn   = document.getElementById('btn-purge-confirm');
+
+  if (conf !== 'EXCLUIR-TUDO') {
+    errEl.textContent = 'Você precisa digitar EXCLUIR-TUDO exatamente como mostrado.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!senha) {
+    errEl.textContent = 'Informe sua senha.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Excluindo...';
+  errEl.style.display = 'none';
+
   try {
     const r = await API.post('/eleitores/admin/purge', { senha, confirmacao: 'EXCLUIR-TUDO' });
+    document.getElementById('purge-modal').classList.remove('show');
     showToast(`✓ ${r.excluidos} eleitor(es) excluído(s).`, 'success');
     await syncFromAPI();
     renderList();
-  } catch (err) { showToast(err.message || 'Erro na exclusão.', 'error'); }
+  } catch (err) {
+    errEl.textContent = err.message || 'Erro na exclusão.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Excluir Todos Definitivamente';
+  }
 });
 
 /* ============================================================
