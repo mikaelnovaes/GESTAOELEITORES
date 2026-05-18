@@ -354,6 +354,19 @@ async function deleteTenant(id, nome) {
 
 function enterTenant(tenantId, nomeAmbiente) {
   if (!confirm(`Entrar no ambiente "${nomeAmbiente}" como Master?\n\nVocê verá os dados deste ambiente no sistema principal.`)) return;
+
+  // Limpa cache de qualquer tenant anterior — evita o "fantasma" de eleitores
+  // do tenant antigo aparecendo por alguns segundos no novo
+  try {
+    localStorage.removeItem('gestao_eleitores_v3');
+    localStorage.removeItem('gestao_eleitores_tenant_v3');
+    localStorage.removeItem('gestao_wa_log_v1');
+    localStorage.removeItem('gestao_bday_log_v1');
+    localStorage.removeItem('gestao_bday_last_run_v1');
+    localStorage.removeItem('gestao_react_log_v1');
+    localStorage.removeItem('gestao_react_last_run_v1');
+  } catch(e) {}
+
   sessionStorage.setItem('ge_acting_tenant', String(tenantId));
   sessionStorage.setItem('ge_acting_tenant_nome', nomeAmbiente);
   // O token de master já está em ge_jwt_token (copiado no saveSession)
