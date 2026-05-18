@@ -5,8 +5,9 @@
 'use strict';
 
 var STORAGE_KEYS = {
-  ELEITORES:    'gestao_eleitores_v3',
-  WA_LOG:       'gestao_wa_log_v1'
+  ELEITORES:        'gestao_eleitores_v3',
+  ELEITORES_TENANT: 'gestao_eleitores_tenant_v3',  // marca a qual tenant o cache pertence
+  WA_LOG:           'gestao_wa_log_v1'
 };
 
 function generateId() {
@@ -27,8 +28,17 @@ function limparTexto(v, max) {
 var Eleitores = {
   load: function() {
     try {
+      // ── REDE DE SEGURANÇA: descarta cache se for de outro tenant ──
+      var currentTenant = (typeof window.getCurrentTenantId === 'function')
+        ? window.getCurrentTenantId() : null;
+      var cachedTenant  = localStorage.getItem(STORAGE_KEYS.ELEITORES_TENANT);
+      if (currentTenant && cachedTenant && String(currentTenant) !== String(cachedTenant)) {
+        // Cache pertence a outro tenant — descarta
+        this.clear();
+        return [];
+      }
+
       var raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.ELEITORES)) || [];
-      // Normaliza IDs para Number (corrige bug dos botões)
       return raw.map(function(e) {
         if (e && e.id != null) e.id = Number(e.id);
         return e;
@@ -36,15 +46,21 @@ var Eleitores = {
     } catch(e) { return []; }
   },
   save: function(data) {
-    // Normaliza IDs antes de salvar
     var normalized = (data || []).map(function(e) {
       if (e && e.id != null) e.id = Number(e.id);
       return e;
     });
     localStorage.setItem(STORAGE_KEYS.ELEITORES, JSON.stringify(normalized));
+    // Marca o cache com o tenant atual
+    var currentTenant = (typeof window.getCurrentTenantId === 'function')
+      ? window.getCurrentTenantId() : null;
+    if (currentTenant) {
+      localStorage.setItem(STORAGE_KEYS.ELEITORES_TENANT, String(currentTenant));
+    }
   },
   clear: function() {
     localStorage.removeItem(STORAGE_KEYS.ELEITORES);
+    localStorage.removeItem(STORAGE_KEYS.ELEITORES_TENANT);
   },
   all: function() { return this.load(); },
   find: function(id) {
