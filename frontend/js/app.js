@@ -46,14 +46,17 @@
 (function initActingFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const acting = params.get('acting');
-  if (acting && /^\d+$/.test(acting)) {
+if (acting && /^\d+$/.test(acting)) {
     sessionStorage.setItem('ge_acting_tenant', acting);
     // Ao entrar via URL (ex.: nova aba), forçamos limpeza de cache de outro tenant
     try {
       localStorage.removeItem('gestao_eleitores_v3');
+      localStorage.removeItem('gestao_eleitores_tenant_v3');
       localStorage.removeItem('gestao_wa_log_v1');
       localStorage.removeItem('gestao_bday_log_v1');
+      localStorage.removeItem('gestao_bday_last_run_v1');
       localStorage.removeItem('gestao_react_log_v1');
+      localStorage.removeItem('gestao_react_last_run_v1');
     } catch(e) {}
     const url = new URL(window.location);
     url.searchParams.delete('acting');
@@ -67,6 +70,23 @@ function clearActing() {
   sessionStorage.removeItem('ge_acting_tenant');
   sessionStorage.removeItem('ge_acting_tenant_nome');
 }
+
+// Tenant ativo no momento (master em modo acting OU usuário normal).
+// Usado pelo cache local (data.js) para detectar vazamento entre tenants.
+window.getCurrentTenantId = function() {
+  // Modo acting do master → tenant é o do acting
+  var acting = sessionStorage.getItem('ge_acting_tenant');
+  if (acting) return String(acting);
+  // Usuário normal → tenant é o do user logado
+  try {
+    var raw = sessionStorage.getItem('ge_user');
+    if (raw) {
+      var u = JSON.parse(raw);
+      return u && u.tenant_id ? String(u.tenant_id) : null;
+    }
+  } catch(e) {}
+  return null;
+};
 
 /* ============================================================
    API CLIENT — envia X-Acting-Tenant quando aplicável
@@ -156,7 +176,11 @@ function clearAllLocalCache() {
   try {
     if (window.Eleitores?.clear) window.Eleitores.clear();
     if (window.WALog?.clear)     window.WALog.clear();
-    // Logs locais dos robôs (chaves usadas pelo robots.js)
+    // Garantia extra: limpa as chaves diretamente caso os helpers não estejam disponíveis
+    localStorage.removeItem('gestao_eleitores_v3');
+    localStorage.removeItem('gestao_eleitores_tenant_v3');
+    localStorage.removeItem('gestao_wa_log_v1');
+    // Logs locais dos robôs
     localStorage.removeItem('gestao_bday_log_v1');
     localStorage.removeItem('gestao_bday_last_run_v1');
     localStorage.removeItem('gestao_react_log_v1');
