@@ -582,7 +582,7 @@ document.getElementById('btn-modal-delete')?.addEventListener('click', async (ev
 /* ============================================================
    RELATÓRIO (mantido da v3.0)
    ============================================================ */
-unction renderReport() {
+function renderReport() {
   const nomeEl    = document.getElementById('report-filter-nome');
   const bairroEl  = document.getElementById('report-filter-bairro');
   const cidadeEl  = document.getElementById('report-filter-cidade');
