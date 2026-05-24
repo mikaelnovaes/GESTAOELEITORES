@@ -153,11 +153,12 @@
           <input type="text" placeholder="Nome do partido (ex: PSD)" value="${esc(p.nome)}" oninput="GEElec_updateNome(${p.id},this.value)">
           <button class="elec-btn-del" onclick="GEElec_removePartido(${p.id})" title="Remover partido">✕</button>
         </div>
-        <div class="elec-party-body">
+         <div class="elec-party-body">
           <div class="elec-legenda-row">
-            <label>Votos de legenda</label>
+            <label>Total de votos geral (legenda + candidatos)</label>
             <input type="number" placeholder="0" min="0" value="${p.legenda || ''}" oninput="GEElec_updateLegenda(${p.id},this.value)">
           </div>
+          <div class="elec-legenda-hint">Se preencher o total geral, não precisa preencher candidato por candidato.</div>
           <div class="elec-cand-list">${candsHtml}</div>
           <button class="btn btn-secondary elec-btn-add-cand" onclick="GEElec_addCandidato(${p.id})" type="button">+ candidato</button>
         </div>`;
@@ -329,14 +330,17 @@
       return;
     }
 
-    let totalVotos = 0;
+let totalVotos = 0;
     const data = partidos.map(p => {
       const votosNominais = p.candidatos.reduce((s, c) => s + (+c.votos || 0), 0);
-      const total = votosNominais + (+p.legenda || 0);
+      const totalGeral = +p.legenda || 0;
+      // Nova semântica: se o "total geral" do partido foi informado e é >= soma dos candidatos,
+      // usa ele direto (o nominal vira a soma dos candidatos, e o resto é "votos de legenda implícitos")
+      // Se total geral for 0 ou menor que a soma dos candidatos, usa só a soma dos candidatos.
+      const total = totalGeral > votosNominais ? totalGeral : votosNominais;
       totalVotos += total;
       return { ...p, candidatos: p.candidatos.map(c => ({ ...c, votos: +c.votos || 0 })), votosNominais, total };
     });
-
     if (totalVotos === 0) {
       rdiv.innerHTML = '<div class="elec-alert elec-alert-red">Informe os votos de ao menos um candidato ou partido.</div>';
       return;
@@ -409,7 +413,15 @@
       municipio, cadeiras, totalUrna, votosValidos, votosBrancos, votosNulos,
       totalVotos, QE, min10, min80, data, sobrasLog, totalCadeirasPreenchidas, diffPartidos
     });
-  }
+
+    // Feedback visual após cálculo: rola até o resultado e mostra toast
+    setTimeout(() => {
+      rdiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    if (window.showToast) {
+      window.showToast(`✓ Cálculo concluído. ${totalCadeirasPreenchidas}/${cadeiras} cadeiras preenchidas.`, 'success');
+    }
+  
 
   /* ============================================================
      RENDERIZAÇÃO DO RESULTADO
