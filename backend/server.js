@@ -25,6 +25,7 @@ const whatsappRoutes  = require('./routes/whatsapp');
 const usuariosRoutes  = require('./routes/usuarios');
 const robotsRoutes    = require('./routes/robots');
 const masterRoutes    = require('./routes/master');
+const electionsRoutes = require('./routes/elections');
 
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler }   = require('./middleware/errorHandler');
@@ -146,6 +147,7 @@ app.use('/api/eleitores', authMiddleware, eleitoresRoutes);
 app.use('/api/whatsapp',  authMiddleware, waLimiter, whatsappRoutes);
 app.use('/api/usuarios',  authMiddleware, usuariosRoutes);
 app.use('/api/robots',    authMiddleware, robotsRoutes);
+app.use('/api/elections', authMiddleware, electionsRoutes);
 
 /* SPA FALLBACK */
 app.get('*', (req, res) => {
