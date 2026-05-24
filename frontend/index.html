@@ -70,7 +70,11 @@
       <button class="nav-btn" data-view="birthday">Aniversários</button>
       <button class="nav-btn" data-view="reactivation">Reativação</button>
 
-     <div class="nav-section admin-only" style="display:none">Eleições</div>
+           <div class="nav-section">Lideranças</div>
+      <button class="nav-btn" data-view="liderancas">Lideranças</button>
+      <button class="nav-btn" data-view="liderancas-report">Relatório de Lideranças</button>
+
+      <div class="nav-section admin-only" style="display:none">Eleições</div>
       <button class="nav-btn admin-only" data-view="elections-calc" style="display:none">Calculadora Eleitoral</button>
 
       <div class="nav-section admin-only" style="display:none">Administração</div>
@@ -139,7 +143,12 @@
             <div class="field"><label for="f-cidade">Cidade</label><input type="text" id="f-cidade" maxlength="100"></div>
             <div class="field"><label for="f-titulo">Título de Eleitor</label><input type="text" id="f-titulo" maxlength="20"></div>
             <div class="field"><label for="f-secao">Seção</label><input type="text" id="f-secao" maxlength="10"></div>
-            <div class="field full"><label for="f-escola">Local de Votação</label><input type="text" id="f-escola" maxlength="200"></div>
+                    <div class="field"><label for="f-escola">Escola de Votação</label><input type="text" id="f-escola" maxlength="200"></div>
+            <div class="field full"><label for="f-lideranca">Vinculado à liderança</label>
+              <select id="f-lideranca">
+                <option value="">— Nenhuma —</option>
+              </select>
+            </div>
           </div>
         </form>
       </div>
@@ -454,6 +463,124 @@
         </div>
       </div>
     </section>
+      <!-- LIDERANÇAS — LISTA -->
+    <section id="view-liderancas" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title">Lideranças</div>
+          </div>
+          <div class="header-actions">
+            <span style="color:var(--muted);font-size:0.88rem;"><span id="lid-stat-total">0</span> cadastradas</span>
+            <button class="btn btn-primary" id="btn-new-lideranca">+ Nova Liderança</button>
+          </div>
+        </div>
+        <div class="filters">
+          <input type="search" id="lid-filter-nome" placeholder="Buscar por nome..." maxlength="200">
+          <select id="lid-filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="lid-filter-cidade"><option value="">Todas as cidades</option></select>
+          <select id="lid-filter-partido"><option value="">Todos os partidos</option></select>
+          <button class="btn btn-secondary" id="lid-btn-clear-filters">Limpar</button>
+        </div>
+        <div id="liderancas-list-container"></div>
+      </div>
+    </section>
+
+    <!-- LIDERANÇAS — FORM -->
+    <section id="view-liderancas-form" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Cadastros</div>
+            <div class="panel-title" id="lideranca-form-title">Nova Liderança</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-cancel-lideranca-form">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-lideranca">Salvar</button>
+          </div>
+        </div>
+        <form id="lideranca-form" novalidate>
+          <input type="hidden" id="lid-id">
+          <div class="lid-form-fields">
+
+            <div class="lid-form-divider">Dados pessoais</div>
+            <div class="field full"><label for="lid-nome">Nome Completo *</label><input type="text" id="lid-nome" required maxlength="200"></div>
+            <div class="field"><label for="lid-nascimento">Data de Nascimento</label><input type="date" id="lid-nascimento"></div>
+            <div class="field"><label for="lid-telefone">Telefone (WhatsApp)</label><input type="tel" id="lid-telefone" maxlength="20" placeholder="11 99999-9999"></div>
+            <div class="field full"><label for="lid-email">E-mail</label><input type="email" id="lid-email" maxlength="200"></div>
+
+            <div class="lid-form-divider">Endereço</div>
+            <div class="field"><label for="lid-endereco">Endereço</label><input type="text" id="lid-endereco" maxlength="300"></div>
+            <div class="field"><label for="lid-numero">Número</label><input type="text" id="lid-numero" maxlength="20"></div>
+            <div class="field"><label for="lid-bairro">Bairro</label><input type="text" id="lid-bairro" maxlength="100"></div>
+            <div class="field"><label for="lid-cidade">Cidade</label><input type="text" id="lid-cidade" maxlength="100"></div>
+
+            <div class="lid-form-divider">Dados eleitorais</div>
+            <div class="field"><label for="lid-titulo">Título de Eleitor</label><input type="text" id="lid-titulo" maxlength="20"></div>
+            <div class="field"><label for="lid-secao">Seção</label><input type="text" id="lid-secao" maxlength="10"></div>
+            <div class="field full"><label for="lid-escola">Escola de Votação</label><input type="text" id="lid-escola" maxlength="200"></div>
+
+            <div class="lid-form-divider">Atuação política</div>
+            <div class="field"><label for="lid-cargo">Cargo / Função</label><input type="text" id="lid-cargo" maxlength="100" placeholder="Ex: Vereador, Cabo eleitoral"></div>
+            <div class="field"><label for="lid-partido">Partido</label><input type="text" id="lid-partido" maxlength="50" placeholder="Ex: PSD"></div>
+            <div class="field full"><label for="lid-area-atuacao">Área de Atuação</label><input type="text" id="lid-area-atuacao" maxlength="300" placeholder="Ex: Zona Sul, bairros X e Y"></div>
+
+            <div class="lid-form-divider">Expectativa de votos</div>
+            <div class="field"><label for="lid-exp-total">Meta total declarada</label><input type="number" id="lid-exp-total" min="0" placeholder="0"></div>
+            <div class="field"><label for="lid-exp-nao-vinc">Prometidos sem cadastro</label><input type="number" id="lid-exp-nao-vinc" min="0" placeholder="0"></div>
+
+            <div class="lid-form-divider">Observações</div>
+            <div class="field full"><label for="lid-observacoes">Observações internas</label><textarea id="lid-observacoes" maxlength="5000"></textarea></div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- LIDERANÇAS — RELATÓRIO -->
+    <section id="view-liderancas-report" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Análise</div>
+            <div class="panel-title">Relatório de Lideranças</div>
+          </div>
+          <div class="header-actions">
+            <span id="lid-report-count" style="color:var(--muted);font-size:0.88rem;">0 lideranças</span>
+            <button class="btn btn-secondary" id="lid-btn-print-report">Imprimir</button>
+          </div>
+        </div>
+        <div class="filters">
+          <input type="search" id="lid-report-filter-nome" placeholder="Buscar por nome..." maxlength="200">
+          <select id="lid-report-filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="lid-report-filter-cidade"><option value="">Todas as cidades</option></select>
+          <select id="lid-report-filter-partido"><option value="">Todos os partidos</option></select>
+          <select id="lid-report-sort">
+            <option value="nome">Ordenar por Nome</option>
+            <option value="cargo">Ordenar por Cargo</option>
+            <option value="partido">Ordenar por Partido</option>
+            <option value="cobertura">Ordenar por Cobertura</option>
+            <option value="meta">Ordenar por Meta</option>
+          </select>
+          <button class="btn btn-secondary" id="lid-btn-clear-report-filters">Limpar</button>
+        </div>
+        <div id="lid-report-container"></div>
+      </div>
+    </section>
+
+    <!-- MODAL: DETALHES DE LIDERANÇA -->
+    <div class="modal-overlay" id="lid-detail-modal">
+      <div class="modal" style="max-width:780px;">
+        <div class="modal-header">
+          <div class="modal-title">Detalhes da Liderança</div>
+          <button class="modal-close" data-close="lid-detail-modal">×</button>
+        </div>
+        <div class="modal-body" id="lid-detail-body"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-close="lid-detail-modal">Fechar</button>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -594,7 +721,8 @@
 <script src="js/whatsapp.js?v=5"></script>
 <script src="js/robots.js?v=5"></script>
 <script src="js/import.js?v=5"></script>
-<script src="js/elections.js?v=3"></script>
-<script src="js/app.js?v=5"></script>
+  <script src="js/elections.js?v=3"></script>
+  <script src="js/liderancas.js?v=1"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
