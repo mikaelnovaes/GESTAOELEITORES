@@ -1,4 +1,4 @@
-/**
+/***
  * frontend/js/elections.js
  * Menu Eleições — Calculadora de Coeficiente Eleitoral
  * Base: Código Eleitoral arts. 106-109 (lei 9.504/97 + reformas até 2024)
