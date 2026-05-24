@@ -328,6 +328,9 @@ function switchView(viewName) {
   if (viewName === 'whatsapp-config' && !isPrivileged) {
     showToast('Acesso restrito a administradores.', 'error'); return;
   }
+  if (viewName === 'elections-calc' && !isPrivileged) {
+    showToast('Acesso restrito a administradores.', 'error'); return;
+  }
 
   views.forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
   navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === viewName));
@@ -343,6 +346,7 @@ function switchView(viewName) {
     birthday:          () => window.GERobots?.openBirthday(),
     reactivation:      () => window.GERobots?.openReactivation(),
     users:             renderUsers,
+   'elections-calc':  () => window.GEElections?.openCalculator(),
   };
   if (handlers[viewName]) handlers[viewName]();
 }
