@@ -336,9 +336,12 @@ function switchView(viewName) {
   navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === viewName));
   document.getElementById('main-content')?.scrollTo(0, 0);
 
-  const handlers = {
+const handlers = {
     list:              () => { syncFromAPI().then(renderList); },
     reports:           () => { syncFromAPI().then(renderReport); },
+    liderancas:        () => window.GELiderancas?.openList(),
+    'liderancas-report': () => window.GELiderancas?.openReport(),
+    new:               () => populateLiderancaDropdown(),
     'whatsapp-send':   () => window.GEWhatsApp?.openWhatsAppSend(),
     'whatsapp-config': () => window.GEWhatsApp?.openWhatsAppConfig(),
     'whatsapp-log':    () => window.GEWhatsApp?.renderWhatsAppLog(),
@@ -497,6 +500,7 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
   if (email && window.GESecurity && !window.GESecurity.Sanitizer.validateEmail(email)) {
     showToast('E-mail inválido.', 'error'); return;
   }
+ const lidVal = document.getElementById('f-lideranca')?.value;
   const data = {
     nome,
     data_nascimento: document.getElementById('f-nascimento')?.value || null,
@@ -509,6 +513,7 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
     titulo_eleitor:  document.getElementById('f-titulo')?.value     || null,
     secao:           document.getElementById('f-secao')?.value      || null,
     escola_votacao:  document.getElementById('f-escola')?.value     || null,
+    lideranca_id:    lidVal ? Number(lidVal) : null,
   };
   try {
     if (id) { await API.put(`/eleitores/${id}`, data); showToast('Eleitor atualizado!', 'success'); }
@@ -520,7 +525,7 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
   } catch (err) { showToast(err.message || 'Erro ao salvar.', 'error'); }
 });
 
-function openEleitorForm(eleitor) {
+async function openEleitorForm(eleitor) {
   document.getElementById('form-title').textContent = eleitor ? 'Editar Eleitor' : 'Novo Eleitor';
   document.getElementById('eleitor-id').value     = eleitor?.id   || '';
   document.getElementById('f-nome').value         = eleitor?.nome || '';
@@ -534,6 +539,15 @@ function openEleitorForm(eleitor) {
   document.getElementById('f-titulo').value       = eleitor?.titulo_eleitor || '';
   document.getElementById('f-secao').value        = eleitor?.secao || '';
   document.getElementById('f-escola').value       = eleitor?.escola_votacao || '';
+   const fLid = document.getElementById('f-lideranca');
+  if (fLid) {
+    if (e && e.lideranca_id) {
+      document.getElementById('eleitor-id').dataset.lidId = String(e.lideranca_id);
+    } else {
+      delete document.getElementById('eleitor-id').dataset.lidId;
+    }
+  }
+  await populateLiderancaDropdown();
   switchView('new');
   setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
 }
@@ -653,6 +667,20 @@ document.getElementById('btn-clear-report-filters')?.addEventListener('click', (
 });
 
 document.getElementById('btn-print-report')?.addEventListener('click', () => window.print());
+
+async function populateLiderancaDropdown() {
+  const sel = document.getElementById('f-lideranca');
+  if (!sel || !window.GELiderancas) return;
+  const currentValue = sel.value || document.getElementById('eleitor-id')?.dataset.lidId || '';
+  const list = await window.GELiderancas.fetchAll();
+  const sorted = [...list].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  sel.innerHTML = '<option value="">— Nenhuma —</option>' +
+    sorted.map(l => {
+      const label = l.nome + (l.cargo ? ` (${l.cargo})` : '');
+      return `<option value="${l.id}" ${String(l.id) === String(currentValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+}
+window.populateLiderancaDropdown = populateLiderancaDropdown;
 
 /* ============================================================
    EXPORTAÇÃO CSV
