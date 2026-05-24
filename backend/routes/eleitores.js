@@ -78,7 +78,7 @@ router.get('/',
         `SELECT id, nome, data_nascimento, telefone, email,
                 endereco, numero, bairro, cidade,
                 titulo_eleitor, secao, escola_votacao,
-                foto_url, criado_em, atualizado_em
+                foto_url, lideranca_id, criado_em, atualizado_em
          FROM eleitores
          WHERE ${where}
          ORDER BY nome ASC
@@ -111,7 +111,7 @@ router.get('/:id',
         `SELECT id, nome, data_nascimento, telefone, email,
                 endereco, numero, bairro, cidade,
                 titulo_eleitor, secao, escola_votacao, foto_url,
-                criado_em, atualizado_em
+                lideranca_id, criado_em, atualizado_em
          FROM eleitores
          WHERE id = $1 AND tenant_id = $2 AND ativo = TRUE`,
         [req.params.id, req.user.tenant_id]
@@ -140,6 +140,7 @@ router.post('/',
     body('titulo_eleitor').optional({ nullable: true }).isLength({ max: 20 }),
     body('secao').optional({ nullable: true }).isLength({ max: 10 }),
     body('escola_votacao').optional({ nullable: true }).isLength({ max: 200 }),
+    body('lideranca_id').optional({ nullable: true, checkFalsy: true }).toInt().isInt({ min: 1 }),
   ],
   async (req, res) => {
     if (hasErrors(req, res)) return;
@@ -148,8 +149,8 @@ router.post('/',
       const r = await db.query(
         `INSERT INTO eleitores
            (tenant_id, nome, data_nascimento, telefone, email, endereco, numero,
-            bairro, cidade, titulo_eleitor, secao, escola_votacao, criado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            bairro, cidade, titulo_eleitor, secao, escola_votacao, lideranca_id, criado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
          RETURNING id, criado_em`,
         [
           req.user.tenant_id,
@@ -164,6 +165,7 @@ router.post('/',
           clean(d.titulo_eleitor, 20),
           clean(d.secao, 10),
           clean(d.escola_votacao, 200),
+          d.lideranca_id || null,
           req.user.id,
         ]
       );
