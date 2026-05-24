@@ -1,4 +1,4 @@
-/**
+/***
  * backend/server.js
  * Servidor Express — Render — versão MASTER
  */
