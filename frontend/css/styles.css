@@ -658,4 +658,10 @@ tr:hover td { background: rgba(201,169,97,0.04); }
 .elec-empty-title { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; }
 .elec-empty-sub { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
 
-
+.elec-legenda-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+  padding: 0.1rem 0.5rem 0.5rem;
+  line-height: 1.4;
+}
