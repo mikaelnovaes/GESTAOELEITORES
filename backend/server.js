@@ -25,7 +25,7 @@ const whatsappRoutes  = require('./routes/whatsapp');
 const usuariosRoutes  = require('./routes/usuarios');
 const robotsRoutes    = require('./routes/robots');
 const masterRoutes    = require('./routes/master');
-const electionsRoutes = require('./routes/elections');
+const electionsRoutes = require('./routes/elections-route');
 
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler }   = require('./middleware/errorHandler');
