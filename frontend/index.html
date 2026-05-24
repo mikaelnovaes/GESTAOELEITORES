@@ -70,6 +70,9 @@
       <button class="nav-btn" data-view="birthday">Aniversários</button>
       <button class="nav-btn" data-view="reactivation">Reativação</button>
 
+     <div class="nav-section admin-only" style="display:none">Eleições</div>
+      <button class="nav-btn admin-only" data-view="elections-calc" style="display:none">Calculadora Eleitoral</button>
+
       <div class="nav-section admin-only" style="display:none">Administração</div>
       <button class="nav-btn admin-only" data-view="users" style="display:none">Usuários</button>
     </nav>
@@ -351,6 +354,106 @@
         <div id="users-container"></div>
       </div>
     </section>
+
+    <!-- CALCULADORA ELEITORAL -->
+    <section id="view-elections-calc" class="view">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Eleições</div>
+            <div class="panel-title">Calculadora de Coeficiente Eleitoral</div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-elec-novo" type="button">Nova simulação</button>
+            <button class="btn btn-primary" id="btn-elec-salvar" type="button">Salvar simulação</button>
+          </div>
+        </div>
+
+        <div class="elec-layout">
+          <!-- COLUNA ESQUERDA: ENTRADAS -->
+          <div class="elec-col-left">
+
+            <!-- Simulações salvas -->
+            <div class="elec-panel">
+              <div class="elec-panel-head"><span class="elec-panel-title">Simulações salvas</span></div>
+              <div class="elec-panel-body">
+                <div id="elec-sim-list" class="elec-sim-list"></div>
+              </div>
+            </div>
+
+            <!-- Configuração -->
+            <div class="elec-panel">
+              <div class="elec-panel-head"><span class="elec-panel-title">Configuração</span></div>
+              <div class="elec-panel-body">
+                <div class="elec-field">
+                  <label class="elec-field-label">Município / Estado</label>
+                  <input type="text" id="elec-municipio" placeholder="Ex: Itapecerica da Serra" maxlength="100">
+                </div>
+                <div class="elec-field">
+                  <label class="elec-field-label">Número de cadeiras</label>
+                  <input type="number" id="elec-cadeiras" value="15" min="1" max="55">
+                </div>
+              </div>
+            </div>
+
+            <!-- Totais da urna -->
+            <div class="elec-panel">
+              <div class="elec-panel-head"><span class="elec-panel-title">Totais gerais da urna</span></div>
+              <div class="elec-panel-body">
+                <div class="elec-totais-grid">
+                  <div class="elec-field" style="margin-bottom:0">
+                    <label class="elec-field-label">Votos válidos</label>
+                    <input type="number" id="elec-votos-validos" placeholder="0" min="0">
+                  </div>
+                  <div class="elec-field" style="margin-bottom:0">
+                    <label class="elec-field-label">Votos brancos</label>
+                    <input type="number" id="elec-votos-brancos" placeholder="0" min="0">
+                  </div>
+                  <div class="elec-field" style="margin-bottom:0">
+                    <label class="elec-field-label">Votos nulos</label>
+                    <input type="number" id="elec-votos-nulos" placeholder="0" min="0">
+                  </div>
+                  <div class="elec-field" style="margin-bottom:0">
+                    <label class="elec-field-label">Total da urna</label>
+                    <div id="elec-total-urna-display" class="elec-total-display">—</div>
+                    <div class="elec-total-cap-sub">válidos + brancos + nulos</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Partidos -->
+            <div class="elec-panel">
+              <div class="elec-panel-head">
+                <span class="elec-panel-title">Partidos</span>
+                <span id="elec-total-partidos" style="font-size:0.78rem;color:var(--muted)">0 partidos</span>
+              </div>
+              <div class="elec-panel-body">
+                <div id="elec-partidos-container"></div>
+                <button class="btn btn-secondary" onclick="GEElec_addPartido()" type="button" style="margin-top:0.6rem">+ Adicionar partido</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="GEElec_calcular()" type="button" style="padding:0.7rem;font-size:0.95rem;">Calcular resultado →</button>
+          </div>
+
+          <!-- COLUNA DIREITA: RESULTADO -->
+          <div class="elec-panel">
+            <div class="elec-panel-head">
+              <span class="elec-panel-title">Resultado</span>
+              <span id="elec-result-status" style="font-size:0.75rem;color:var(--muted)">aguardando cálculo</span>
+            </div>
+            <div class="elec-panel-body" id="elec-resultado">
+              <div class="elec-empty">
+                <div class="elec-empty-icon">🗳</div>
+                <div class="elec-empty-title">Nenhum resultado ainda</div>
+                <div class="elec-empty-sub">Adicione os partidos e candidatos ao lado<br>e clique em <b>Calcular resultado</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -491,6 +594,7 @@
 <script src="js/whatsapp.js?v=5"></script>
 <script src="js/robots.js?v=5"></script>
 <script src="js/import.js?v=5"></script>
+<script src="js/elections.js?v=1"></script>
 <script src="js/app.js?v=5"></script>
 </body>
 </html>
