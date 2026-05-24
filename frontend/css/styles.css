@@ -665,3 +665,143 @@ tr:hover td { background: rgba(201,169,97,0.04); }
   padding: 0.1rem 0.5rem 0.5rem;
   line-height: 1.4;
 }
+
+/* ============================================================
+   LIDERANÇAS — Adicionar ao final do frontend/css/styles.css
+   ============================================================ */
+
+/* Badge de partido na lista */
+.lid-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-left: 0.3rem;
+}
+
+/* Detalhe — grid de campos */
+.lid-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.6rem 1.2rem;
+  margin-bottom: 1rem;
+}
+.lid-detail-field {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.lid-detail-field strong { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.15rem; }
+
+.lid-detail-section {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.lid-detail-section h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin: 0 0 0.6rem;
+}
+
+/* Métricas (no detalhe e no relatório) */
+.lid-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.lid-metric {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+}
+.lid-metric-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+.lid-metric-value {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+/* Resumo no topo do relatório */
+.lid-report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+}
+
+/* Form de liderança: grid de campos */
+.lid-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem 1.2rem;
+  padding: 1.5rem 2rem;
+}
+.lid-form-fields .field.full { grid-column: 1 / -1; }
+.lid-form-fields .field label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.lid-form-fields .field input,
+.lid-form-fields .field textarea,
+.lid-form-fields .field select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  transition: border-color 0.15s;
+}
+.lid-form-fields .field input:focus,
+.lid-form-fields .field textarea:focus,
+.lid-form-fields .field select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.lid-form-fields .field textarea { min-height: 80px; resize: vertical; }
+
+/* Divisor de seção do form */
+.lid-form-divider {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+  font-family: 'Fraunces', serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lid-form-fields { grid-template-columns: 1fr; padding: 1rem; }
+}
+
