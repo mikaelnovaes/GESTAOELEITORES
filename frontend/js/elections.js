@@ -3,86 +3,89 @@
  * Menu Eleições — Calculadora de Coeficiente Eleitoral
  * Base: Código Eleitoral arts. 106-109 (lei 9.504/97 + reformas até 2024)
  *
+ * v2 — Persistência via API (banco de dados), compartilhada por tenant
+ *      Migração automática do localStorage antigo na primeira abertura
+ *
  * Expõe: window.GEElections.openCalculator()
- * Persistência: localStorage (chave 'ge_elections_simulations')
  */
 
 (function() {
   'use strict';
 
-  const STORAGE_KEY = 'ge_elections_simulations';
+  const LEGACY_KEY = 'ge_elections_simulations';
+  const MIGRATION_DONE_KEY = 'ge_elections_migrated_v2';
+
   const COLORS = ['#0e2b5c','#c9a961','#5b8dee','#2ecc8a','#e85c5c','#b06bee','#f08030','#30c0f0','#e87090','#80c050'];
 
-  // Estado interno do módulo
   let partidos = [];
   let pid = 0;
-  let currentSimId = null; // id da simulação carregada (null = não salva)
+  let currentSimId = null;
+  let simulationsCache = [];
 
   /* ============================================================
-     PERSISTÊNCIA EM localStorage
+     API HELPERS
      ============================================================ */
-  function loadAll() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch (e) { return []; }
+  async function apiList() {
+    if (!window.API) return [];
+    try {
+      const data = await window.API.get('/elections/simulations');
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.warn('[Elections] Falha ao listar:', e.message);
+      return [];
+    }
   }
-  function saveAll(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  }
-  function saveSim(nome) {
-    const all = loadAll();
-    const data = {
-      id: currentSimId || ('sim_' + Date.now()),
-      nome: nome || ('Simulação ' + new Date().toLocaleString('pt-BR')),
-      municipio: document.getElementById('elec-municipio')?.value || '',
-      cadeiras: +document.getElementById('elec-cadeiras')?.value || 15,
-      votos_validos: +document.getElementById('elec-votos-validos')?.value || 0,
-      votos_brancos: +document.getElementById('elec-votos-brancos')?.value || 0,
-      votos_nulos:   +document.getElementById('elec-votos-nulos')?.value || 0,
-      partidos: JSON.parse(JSON.stringify(partidos)),
-      atualizado_em: new Date().toISOString()
-    };
-    const idx = all.findIndex(s => s.id === data.id);
-    if (idx >= 0) all[idx] = data; else all.push(data);
-    saveAll(all);
-    currentSimId = data.id;
-    return data;
-  }
-  function loadSim(id) {
-    const sim = loadAll().find(s => s.id === id);
-    if (!sim) return false;
-    currentSimId = sim.id;
-    document.getElementById('elec-municipio').value = sim.municipio || '';
-    document.getElementById('elec-cadeiras').value = sim.cadeiras || 15;
-    document.getElementById('elec-votos-validos').value = sim.votos_validos || '';
-    document.getElementById('elec-votos-brancos').value = sim.votos_brancos || '';
-    document.getElementById('elec-votos-nulos').value = sim.votos_nulos || '';
-    partidos = sim.partidos || [];
-    pid = partidos.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
-    renderPartidos();
-    atualizarValidacao();
-    return true;
-  }
-  function deleteSim(id) {
-    const all = loadAll().filter(s => s.id !== id);
-    saveAll(all);
-    if (currentSimId === id) currentSimId = null;
-  }
-  function novaSim() {
-    currentSimId = null;
-    document.getElementById('elec-municipio').value = '';
-    document.getElementById('elec-cadeiras').value = 15;
-    document.getElementById('elec-votos-validos').value = '';
-    document.getElementById('elec-votos-brancos').value = '';
-    document.getElementById('elec-votos-nulos').value = '';
-    partidos = [];
-    pid = 0;
-    addPartido(); addPartido();
-    document.getElementById('elec-resultado').innerHTML = emptyResultHTML();
-    document.getElementById('elec-result-status').textContent = 'aguardando cálculo';
+  async function apiCreate(payload) { return window.API.post('/elections/simulations', payload); }
+  async function apiUpdate(id, payload) { return window.API.put('/elections/simulations/' + id, payload); }
+  async function apiDelete(id) { return window.API.delete('/elections/simulations/' + id); }
+
+  /* ============================================================
+     MIGRAÇÃO DO localStorage ANTIGO → API
+     ============================================================ */
+  async function migrateLegacyData() {
+    if (localStorage.getItem(MIGRATION_DONE_KEY) === '1') return;
+    try {
+      const raw = localStorage.getItem(LEGACY_KEY);
+      if (!raw) { localStorage.setItem(MIGRATION_DONE_KEY, '1'); return; }
+      const legacy = JSON.parse(raw);
+      if (!Array.isArray(legacy) || legacy.length === 0) {
+        localStorage.setItem(MIGRATION_DONE_KEY, '1');
+        return;
+      }
+      let migrated = 0, failed = 0;
+      for (const sim of legacy) {
+        try {
+          await apiCreate({
+            nome: sim.nome || ('Migrada ' + new Date().toLocaleDateString('pt-BR')),
+            municipio: sim.municipio || '',
+            cadeiras: sim.cadeiras || 15,
+            votos_validos: sim.votos_validos || 0,
+            votos_brancos: sim.votos_brancos || 0,
+            votos_nulos: sim.votos_nulos || 0,
+            partidos: sim.partidos || [],
+          });
+          migrated++;
+        } catch (e) {
+          failed++;
+          console.warn('[Elections] Falha ao migrar:', sim.nome, e.message);
+        }
+      }
+      localStorage.setItem(MIGRATION_DONE_KEY, '1');
+      localStorage.removeItem(LEGACY_KEY);
+      if (window.showToast && migrated > 0) {
+        const msg = failed > 0
+          ? `${migrated} simulação(ões) migrada(s) para a nuvem. ${failed} falharam.`
+          : `${migrated} simulação(ões) migrada(s) para a nuvem.`;
+        window.showToast('✓ ' + msg, failed > 0 ? 'warning' : 'success');
+      }
+    } catch (e) {
+      console.warn('[Elections] Falha na migração:', e.message);
+      localStorage.setItem(MIGRATION_DONE_KEY, '1');
+    }
   }
 
   /* ============================================================
-     PARTIDOS / CANDIDATOS — manipulação
+     HELPERS
      ============================================================ */
   function fmt(n) { return Math.round(n).toLocaleString('pt-BR'); }
   function esc(s) {
@@ -91,15 +94,15 @@
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
+  /* ============================================================
+     PARTIDOS / CANDIDATOS
+     ============================================================ */
   function addPartido() {
     const id = pid++;
     partidos.push({ id, nome: '', legenda: 0, candidatos: [], cor: COLORS[partidos.length % COLORS.length] });
     renderPartidos();
   }
-  function removePartido(id) {
-    partidos = partidos.filter(p => p.id !== id);
-    renderPartidos();
-  }
+  function removePartido(id) { partidos = partidos.filter(p => p.id !== id); renderPartidos(); }
   function addCandidato(partidoId) {
     const p = partidos.find(x => x.id === partidoId);
     if (p) { p.candidatos.push({ nome: '', votos: 0 }); renderPartidos(); }
@@ -117,7 +120,7 @@
     if (el) el.textContent = partidos.length + ' partido' + (partidos.length !== 1 ? 's' : '');
   }
 
-  // Expostas globalmente p/ uso em onclick/oninput inline
+  // Expostas globalmente p/ inline handlers
   window.GEElec_addPartido = addPartido;
   window.GEElec_removePartido = removePartido;
   window.GEElec_addCandidato = addCandidato;
@@ -127,8 +130,8 @@
   window.GEElec_updateCandNome = updateCandNome;
   window.GEElec_updateCandVotos = updateCandVotos;
   window.GEElec_calcular = () => calcular();
-  window.GEElec_loadSim = loadSim;
-  window.GEElec_deleteSim = deleteSim;
+  window.GEElec_loadSim = (id) => loadSim(id);
+  window.GEElec_deleteSim = (id) => deleteSim(id);
 
   function renderPartidos() {
     updateCount();
@@ -172,6 +175,135 @@
     if (displayEl) displayEl.textContent = total > 0 ? total.toLocaleString('pt-BR') : '—';
   }
   window.GEElec_atualizarValidacao = atualizarValidacao;
+
+  /* ============================================================
+     PERSISTÊNCIA — usa API
+     ============================================================ */
+  function collectPayload(nome) {
+    return {
+      nome: nome,
+      municipio: document.getElementById('elec-municipio')?.value || '',
+      cadeiras: +document.getElementById('elec-cadeiras')?.value || 15,
+      votos_validos: +document.getElementById('elec-votos-validos')?.value || 0,
+      votos_brancos: +document.getElementById('elec-votos-brancos')?.value || 0,
+      votos_nulos:   +document.getElementById('elec-votos-nulos')?.value || 0,
+      partidos: JSON.parse(JSON.stringify(partidos)),
+    };
+  }
+
+  async function saveSim() {
+    let nome, isNew;
+    if (currentSimId) {
+      const updateChoice = confirm(
+        'Já existe uma simulação carregada.\n\n' +
+        'OK = Atualizar a simulação atual\n' +
+        'Cancelar = Salvar como NOVA simulação'
+      );
+      if (updateChoice) {
+        const sim = simulationsCache.find(s => s.id === currentSimId);
+        nome = sim?.nome || '';
+        if (!nome) { nome = prompt('Nome da simulação:', '') || ''; if (!nome) return; }
+        isNew = false;
+      } else {
+        nome = prompt('Nome para a NOVA simulação:', '');
+        if (!nome) return;
+        isNew = true;
+      }
+    } else {
+      nome = prompt('Nome para esta simulação:', document.getElementById('elec-municipio')?.value || '');
+      if (!nome) return;
+      isNew = true;
+    }
+
+    const payload = collectPayload(nome);
+    try {
+      if (isNew) {
+        const res = await apiCreate(payload);
+        currentSimId = Number(res.id);
+        if (window.showToast) window.showToast('✓ Simulação criada.', 'success');
+      } else {
+        await apiUpdate(currentSimId, payload);
+        if (window.showToast) window.showToast('✓ Simulação atualizada.', 'success');
+      }
+      await renderSimList();
+    } catch (err) {
+      const msg = err.message || 'Erro ao salvar.';
+      if (window.showToast) window.showToast(msg, 'error');
+      else alert(msg);
+    }
+  }
+
+  async function loadSim(id) {
+    try {
+      const sim = await window.API.get('/elections/simulations/' + id);
+      currentSimId = Number(sim.id);
+      document.getElementById('elec-municipio').value = sim.municipio || '';
+      document.getElementById('elec-cadeiras').value = sim.cadeiras || 15;
+      document.getElementById('elec-votos-validos').value = sim.votos_validos || '';
+      document.getElementById('elec-votos-brancos').value = sim.votos_brancos || '';
+      document.getElementById('elec-votos-nulos').value = sim.votos_nulos || '';
+
+      partidos = Array.isArray(sim.partidos) ? sim.partidos.map((p, idx) => ({
+        id: idx,
+        nome: p.nome || '',
+        legenda: +p.legenda || 0,
+        cor: p.cor || COLORS[idx % COLORS.length],
+        candidatos: Array.isArray(p.candidatos)
+          ? p.candidatos.map(c => ({ nome: c.nome || '', votos: +c.votos || 0 }))
+          : []
+      })) : [];
+      pid = partidos.length;
+
+      renderPartidos();
+      atualizarValidacao();
+      await renderSimList();
+      document.getElementById('elec-resultado').innerHTML = emptyResultHTML();
+      document.getElementById('elec-result-status').textContent = 'aguardando cálculo';
+
+      if (window.showToast) window.showToast('✓ Simulação carregada.', 'success');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Erro ao carregar.', 'error');
+    }
+  }
+
+  async function deleteSim(id) {
+    const sim = simulationsCache.find(s => s.id === id);
+    const nome = sim?.nome || 'esta simulação';
+    if (!confirm(`Excluir simulação "${nome}"?\n\nEsta ação não pode ser desfeita.`)) return;
+    try {
+      await apiDelete(id);
+      if (currentSimId === id) {
+        currentSimId = null;
+        novaSim(true);
+      }
+      await renderSimList();
+      if (window.showToast) window.showToast('✓ Simulação excluída.', 'success');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Erro ao excluir.', 'error');
+    }
+  }
+
+  function novaSim(forceClean) {
+    if (!forceClean && (
+        partidos.some(p => p.nome || p.legenda || p.candidatos.length) ||
+        document.getElementById('elec-municipio')?.value ||
+        document.getElementById('elec-votos-validos')?.value
+      )) {
+      if (!confirm('Descartar dados atuais e começar uma nova simulação?')) return;
+    }
+    currentSimId = null;
+    document.getElementById('elec-municipio').value = '';
+    document.getElementById('elec-cadeiras').value = 15;
+    document.getElementById('elec-votos-validos').value = '';
+    document.getElementById('elec-votos-brancos').value = '';
+    document.getElementById('elec-votos-nulos').value = '';
+    partidos = [];
+    pid = 0;
+    addPartido(); addPartido();
+    document.getElementById('elec-resultado').innerHTML = emptyResultHTML();
+    document.getElementById('elec-result-status').textContent = 'aguardando cálculo';
+    renderSimList();
+  }
 
   /* ============================================================
      CÁLCULO — Código Eleitoral arts. 106-109
@@ -239,11 +371,10 @@
       });
     });
 
-    // FASE 2: Sobras (maiores médias, com restrição do 80% QE e 20% QE individual)
+    // FASE 2: Sobras
     let sobras = cadeiras - vagasDistribuidas;
     const sobrasLog = [];
     let iteracoes = 0;
-
     while (sobras > 0 && iteracoes < 200) {
       iteracoes++;
       data.forEach(p => {
@@ -273,7 +404,6 @@
 
     const totalCadeirasPreenchidas = data.reduce((s, p) => s + p.eleitos.length, 0);
     const diffPartidos = totalVotos - votosValidos;
-
     status.textContent = `${totalCadeirasPreenchidas}/${cadeiras} cadeiras`;
     rdiv.innerHTML = buildResultHTML({
       municipio, cadeiras, totalUrna, votosValidos, votosBrancos, votosNulos,
@@ -294,7 +424,6 @@
         <div class="elec-result-sub">Eleição proporcional — Código Eleitoral arts. 106-109</div>
       </div>`;
 
-    // Totais da urna
     if (totalUrna > 0 || votosValidos > 0 || votosBrancos > 0 || votosNulos > 0) {
       html += `
         <div class="elec-totals-box">
@@ -308,7 +437,6 @@
           <div class="elec-alert elec-alert-green">
             ✓ Total da urna: ${fmt(votosValidos)} válidos + ${fmt(votosBrancos)} brancos + ${fmt(votosNulos)} nulos = ${fmt(totalUrna)}
           </div>`;
-
       if (votosValidos > 0) {
         if (diffPartidos === 0) {
           html += `<div class="elec-alert elec-alert-green" style="margin-top:6px">
@@ -325,7 +453,6 @@
       html += `</div>`;
     }
 
-    // Métricas principais
     html += `
       <div class="elec-metrics-grid">
         <div class="elec-metric-card">
@@ -350,7 +477,6 @@
         </div>
       </div>`;
 
-    // Tabela QP
     html += `
       <div class="elec-section-divider">
         <span class="elec-step-badge">1</span>
@@ -370,7 +496,6 @@
     });
     html += `</tbody></table>`;
 
-    // Sobras
     if (sobrasLog.length > 0) {
       html += `
         <div class="elec-section-divider">
@@ -392,7 +517,6 @@
       html += `</tbody></table>`;
     }
 
-    // Detalhe por partido
     html += `
       <div class="elec-section-divider">
         <span class="elec-step-badge">3</span>
@@ -450,59 +574,47 @@
   }
 
   /* ============================================================
-     INICIALIZAÇÃO QUANDO A VIEW ABRE
+     LISTA DE SIMULAÇÕES (vinda do servidor)
      ============================================================ */
-  function openCalculator() {
-    // Inicializa só na primeira abertura
-    if (!document.getElementById('elec-init-flag')) {
-      // Marca como inicializada
-      const flag = document.createElement('span');
-      flag.id = 'elec-init-flag';
-      flag.style.display = 'none';
-      document.getElementById('view-elections-calc')?.appendChild(flag);
-
-      // Listeners dos inputs de totais da urna
-      ['elec-votos-validos','elec-votos-brancos','elec-votos-nulos'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', atualizarValidacao);
-      });
-      // Listener do botão salvar
-      document.getElementById('btn-elec-salvar')?.addEventListener('click', () => {
-        const nome = prompt('Nome para esta simulação:', document.getElementById('elec-municipio')?.value || '');
-        if (!nome) return;
-        saveSim(nome);
-        renderSimList();
-        if (window.showToast) window.showToast('✓ Simulação salva.', 'success');
-      });
-      // Listener do botão novo
-      document.getElementById('btn-elec-novo')?.addEventListener('click', () => {
-        if (partidos.some(p => p.nome || p.legenda || p.candidatos.length)) {
-          if (!confirm('Descartar dados atuais e começar nova simulação?')) return;
-        }
-        novaSim();
-      });
-      // Inicia com 2 partidos
-      addPartido(); addPartido();
-    }
-    renderSimList();
-  }
-
-  function renderSimList() {
+  async function renderSimList() {
     const wrap = document.getElementById('elec-sim-list');
     if (!wrap) return;
-    const all = loadAll().sort((a,b) => (b.atualizado_em||'').localeCompare(a.atualizado_em||''));
-    if (!all.length) {
+    wrap.innerHTML = '<div class="elec-muted" style="padding:0.6rem 0;font-size:0.82rem">Carregando...</div>';
+    simulationsCache = await apiList();
+    if (!simulationsCache.length) {
       wrap.innerHTML = '<div class="elec-muted" style="padding:0.6rem 0;font-size:0.82rem">Nenhuma simulação salva.</div>';
       return;
     }
-    wrap.innerHTML = all.map(s => `
-      <div class="elec-sim-item ${s.id === currentSimId ? 'active' : ''}">
-        <div class="elec-sim-info" onclick="GEElec_loadSim('${esc(s.id)}')">
-          <div class="elec-sim-name">${esc(s.nome)}</div>
-          <div class="elec-sim-meta">${esc(s.municipio || '—')} · ${s.cadeiras||'?'} cadeiras · ${new Date(s.atualizado_em).toLocaleDateString('pt-BR')}</div>
-        </div>
-        <button class="elec-btn-del" title="Excluir simulação" onclick="if(confirm('Excluir simulação \\'${esc(s.nome).replace(/'/g,'\\\'')}\\'?')){GEElec_deleteSim('${esc(s.id)}');document.getElementById('btn-elec-novo').click();}">✕</button>
-      </div>
-    `).join('');
+    wrap.innerHTML = simulationsCache.map(s => {
+      const data = s.atualizado_em ? new Date(s.atualizado_em).toLocaleDateString('pt-BR') : '';
+      const autor = s.criado_por_nome ? ' · ' + esc(s.criado_por_nome) : '';
+      return `
+        <div class="elec-sim-item ${s.id === currentSimId ? 'active' : ''}">
+          <div class="elec-sim-info" onclick="GEElec_loadSim(${s.id})">
+            <div class="elec-sim-name">${esc(s.nome)}</div>
+            <div class="elec-sim-meta">${esc(s.municipio || '—')} · ${s.cadeiras || '?'} cadeiras · ${data}${autor}</div>
+          </div>
+          <button class="elec-btn-del" title="Excluir simulação" onclick="GEElec_deleteSim(${s.id})">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  /* ============================================================
+     INICIALIZAÇÃO
+     ============================================================ */
+  let initialized = false;
+  async function openCalculator() {
+    if (!initialized) {
+      initialized = true;
+      ['elec-votos-validos','elec-votos-brancos','elec-votos-nulos'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', atualizarValidacao);
+      });
+      document.getElementById('btn-elec-salvar')?.addEventListener('click', saveSim);
+      document.getElementById('btn-elec-novo')?.addEventListener('click', () => novaSim(false));
+      addPartido(); addPartido();
+      await migrateLegacyData();
+    }
+    await renderSimList();
   }
 
   window.GEElections = { openCalculator, renderSimList };
