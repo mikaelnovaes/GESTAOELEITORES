@@ -418,10 +418,10 @@ let totalVotos = 0;
     setTimeout(() => {
       rdiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
-    if (window.showToast) {
+   if (window.showToast) {
       window.showToast(`✓ Cálculo concluído. ${totalCadeirasPreenchidas}/${cadeiras} cadeiras preenchidas.`, 'success');
     }
-  
+  }
 
   /* ============================================================
      RENDERIZAÇÃO DO RESULTADO
