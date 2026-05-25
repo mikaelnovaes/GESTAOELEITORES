@@ -1,12 +1,12 @@
-/***
+/**
  * frontend/js/elections.js
- * Menu Eleições — Calculadora de Coeficiente Eleitoral
- * Base: Código Eleitoral arts. 106-109 (lei 9.504/97 + reformas até 2024)
+ * Calculadora de Coeficiente Eleitoral
  *
- * v2 — Persistência via API (banco de dados), compartilhada por tenant
- *      Migração automática do localStorage antigo na primeira abertura
+ * v3 — CSP-SAFE: removidos todos os onclick="" e oninput="" inline.
+ *      Usa event delegation no container principal.
+ *      Funciona com Content-Security-Policy: script-src-attr 'none'
  *
- * Expõe: window.GEElections.openCalculator()
+ * Base: Código Eleitoral arts. 106-109
  */
 
 (function() {
@@ -95,7 +95,7 @@
   }
 
   /* ============================================================
-     PARTIDOS / CANDIDATOS
+     PARTIDOS / CANDIDATOS — manipulação interna
      ============================================================ */
   function addPartido() {
     const id = pid++;
@@ -120,19 +120,6 @@
     if (el) el.textContent = partidos.length + ' partido' + (partidos.length !== 1 ? 's' : '');
   }
 
-  // Expostas globalmente p/ inline handlers
-  window.GEElec_addPartido = addPartido;
-  window.GEElec_removePartido = removePartido;
-  window.GEElec_addCandidato = addCandidato;
-  window.GEElec_removeCandidato = removeCandidato;
-  window.GEElec_updateNome = updateNome;
-  window.GEElec_updateLegenda = updateLegenda;
-  window.GEElec_updateCandNome = updateCandNome;
-  window.GEElec_updateCandVotos = updateCandVotos;
-  window.GEElec_calcular = () => calcular();
-  window.GEElec_loadSim = (id) => loadSim(id);
-  window.GEElec_deleteSim = (id) => deleteSim(id);
-
   function renderPartidos() {
     updateCount();
     const c = document.getElementById('elec-partidos-container');
@@ -141,41 +128,45 @@
     partidos.forEach((p) => {
       const div = document.createElement('div');
       div.className = 'elec-party-card';
+      // ATENÇÃO: NADA de onclick=, oninput= aqui — todos os handlers via delegation
       let candsHtml = p.candidatos.map((cand, i) => `
         <div class="elec-cand-row">
-          <input type="text" placeholder="Nome do candidato ${i+1}" value="${esc(cand.nome)}" oninput="GEElec_updateCandNome(${p.id},${i},this.value)">
-          <input type="number" placeholder="Votos" min="0" value="${cand.votos || ''}" oninput="GEElec_updateCandVotos(${p.id},${i},this.value)">
-          <button class="elec-btn-del" onclick="GEElec_removeCandidato(${p.id},${i})" title="Remover">✕</button>
+          <input type="text" placeholder="Nome do candidato ${i+1}" value="${esc(cand.nome)}"
+                 data-elec-action="cand-nome" data-pid="${p.id}" data-ci="${i}">
+          <input type="number" placeholder="Votos" min="0" value="${cand.votos || ''}"
+                 data-elec-action="cand-votos" data-pid="${p.id}" data-ci="${i}">
+          <button class="elec-btn-del" data-elec-action="cand-remove" data-pid="${p.id}" data-ci="${i}" title="Remover">✕</button>
         </div>`).join('');
       div.innerHTML = `
         <div class="elec-party-head">
           <div class="elec-color-dot" style="background:${p.cor}"></div>
-          <input type="text" placeholder="Nome do partido (ex: PSD)" value="${esc(p.nome)}" oninput="GEElec_updateNome(${p.id},this.value)">
-          <button class="elec-btn-del" onclick="GEElec_removePartido(${p.id})" title="Remover partido">✕</button>
+          <input type="text" placeholder="Nome do partido (ex: PSD)" value="${esc(p.nome)}"
+                 data-elec-action="part-nome" data-pid="${p.id}">
+          <button class="elec-btn-del" data-elec-action="part-remove" data-pid="${p.id}" title="Remover partido">✕</button>
         </div>
-         <div class="elec-party-body">
+        <div class="elec-party-body">
           <div class="elec-legenda-row">
             <label>Total de votos geral (legenda + candidatos)</label>
-            <input type="number" placeholder="0" min="0" value="${p.legenda || ''}" oninput="GEElec_updateLegenda(${p.id},this.value)">
+            <input type="number" placeholder="0" min="0" value="${p.legenda || ''}"
+                   data-elec-action="part-legenda" data-pid="${p.id}">
           </div>
           <div class="elec-legenda-hint">Se preencher o total geral, não precisa preencher candidato por candidato.</div>
           <div class="elec-cand-list">${candsHtml}</div>
-          <button class="btn btn-secondary elec-btn-add-cand" onclick="GEElec_addCandidato(${p.id})" type="button">+ candidato</button>
+          <button class="btn btn-secondary elec-btn-add-cand" data-elec-action="cand-add" data-pid="${p.id}" type="button">+ candidato</button>
         </div>`;
       c.appendChild(div);
     });
     atualizarValidacao();
   }
 
-function atualizarValidacao() {
+  function atualizarValidacao() {
     const validos = +document.getElementById('elec-votos-validos')?.value || 0;
     const displayEl = document.getElementById('elec-total-urna-display');
     if (displayEl) displayEl.textContent = validos > 0 ? validos.toLocaleString('pt-BR') : '—';
   }
-  window.GEElec_atualizarValidacao = atualizarValidacao;
 
   /* ============================================================
-     PERSISTÊNCIA — usa API
+     PERSISTÊNCIA
      ============================================================ */
   function collectPayload(nome) {
     return {
@@ -327,19 +318,19 @@ function atualizarValidacao() {
       return;
     }
 
-let totalVotos = 0;
+    let totalVotos = 0;
     const data = partidos.map(p => {
       const votosNominais = p.candidatos.reduce((s, c) => s + (+c.votos || 0), 0);
       const totalGeral = +p.legenda || 0;
-      // Nova semântica: se o "total geral" do partido foi informado e é >= soma dos candidatos,
-      // usa ele direto (o nominal vira a soma dos candidatos, e o resto é "votos de legenda implícitos")
-      // Se total geral for 0 ou menor que a soma dos candidatos, usa só a soma dos candidatos.
+      // Se total geral foi informado e é >= soma dos candidatos, usa ele;
+      // senão usa a soma dos candidatos
       const total = totalGeral > votosNominais ? totalGeral : votosNominais;
       totalVotos += total;
       return { ...p, candidatos: p.candidatos.map(c => ({ ...c, votos: +c.votos || 0 })), votosNominais, total };
     });
+
     if (totalVotos === 0) {
-      rdiv.innerHTML = '<div class="elec-alert elec-alert-red">Informe os votos de ao menos um candidato ou partido.</div>';
+      rdiv.innerHTML = '<div class="elec-alert elec-alert-red">Informe os votos de ao menos um candidato ou o total geral do partido.</div>';
       return;
     }
 
@@ -403,10 +394,14 @@ let totalVotos = 0;
       sobras--;
     }
 
-  const temCandidatos = data.some(p => p.candidatos.length > 0);
+    // Total de cadeiras preenchidas:
+    // - Se há candidatos cadastrados em algum partido, conta candidatos eleitos
+    // - Senão (uso só com total geral por partido), conta as vagas alocadas aos partidos
+    const temCandidatos = data.some(p => p.candidatos.length > 0);
     const totalCadeirasPreenchidas = temCandidatos
       ? data.reduce((s, p) => s + p.eleitos.length, 0)
       : data.reduce((s, p) => s + p.vagasQP + p.sobraObtidas, 0);
+
     const diffPartidos = totalVotos - votosValidos;
     status.textContent = `${totalCadeirasPreenchidas}/${cadeiras} cadeiras`;
     rdiv.innerHTML = buildResultHTML({
@@ -418,7 +413,7 @@ let totalVotos = 0;
     setTimeout(() => {
       rdiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
-   if (window.showToast) {
+    if (window.showToast) {
       window.showToast(`✓ Cálculo concluído. ${totalCadeirasPreenchidas}/${cadeiras} cadeiras preenchidas.`, 'success');
     }
   }
@@ -601,14 +596,70 @@ let totalVotos = 0;
       const data = s.atualizado_em ? new Date(s.atualizado_em).toLocaleDateString('pt-BR') : '';
       const autor = s.criado_por_nome ? ' · ' + esc(s.criado_por_nome) : '';
       return `
-        <div class="elec-sim-item ${s.id === currentSimId ? 'active' : ''}">
-          <div class="elec-sim-info" onclick="GEElec_loadSim(${s.id})">
+        <div class="elec-sim-item ${s.id === currentSimId ? 'active' : ''}" data-sim-id="${s.id}">
+          <div class="elec-sim-info" data-elec-action="sim-load" data-id="${s.id}">
             <div class="elec-sim-name">${esc(s.nome)}</div>
             <div class="elec-sim-meta">${esc(s.municipio || '—')} · ${s.cadeiras || '?'} cadeiras · ${data}${autor}</div>
           </div>
-          <button class="elec-btn-del" title="Excluir simulação" onclick="GEElec_deleteSim(${s.id})">✕</button>
+          <button class="elec-btn-del" title="Excluir simulação" data-elec-action="sim-delete" data-id="${s.id}">✕</button>
         </div>`;
     }).join('');
+  }
+
+  /* ============================================================
+     EVENT DELEGATION — substitui todos os onclick=/oninput= inline
+     ============================================================ */
+  function bindGlobalListeners() {
+    const view = document.getElementById('view-elections-calc');
+    if (!view) return;
+
+    // Click delegation
+    view.addEventListener('click', (ev) => {
+      const target = ev.target.closest('[data-elec-action]');
+      if (!target) return;
+      const action = target.dataset.elecAction;
+      const pid    = target.dataset.pid != null ? Number(target.dataset.pid) : null;
+      const ci     = target.dataset.ci  != null ? Number(target.dataset.ci)  : null;
+      const id     = target.dataset.id;
+
+      switch (action) {
+        case 'part-add':     addPartido(); break;
+        case 'part-remove':  removePartido(pid); break;
+        case 'cand-add':     addCandidato(pid); break;
+        case 'cand-remove':  removeCandidato(pid, ci); break;
+        case 'calcular':     calcular(); break;
+        case 'novo':         novaSim(false); break;
+        case 'salvar':       saveSim(); break;
+        case 'sim-load':     if (id) loadSim(id); break;
+        case 'sim-delete':   if (id) deleteSim(id); break;
+      }
+    });
+
+    // Input delegation (para campos dinâmicos de partidos e candidatos)
+    view.addEventListener('input', (ev) => {
+      const target = ev.target.closest('[data-elec-action]');
+      if (!target) return;
+      const action = target.dataset.elecAction;
+      const pid    = target.dataset.pid != null ? Number(target.dataset.pid) : null;
+      const ci     = target.dataset.ci  != null ? Number(target.dataset.ci)  : null;
+      const value  = target.value;
+
+      switch (action) {
+        case 'part-nome':     updateNome(pid, value); break;
+        case 'part-legenda':  updateLegenda(pid, value); break;
+        case 'cand-nome':     updateCandNome(pid, ci, value); break;
+        case 'cand-votos':    updateCandVotos(pid, ci, value); break;
+      }
+    });
+
+    // Listeners dos campos FIXOS de totais da urna
+    ['elec-votos-validos','elec-votos-brancos','elec-votos-nulos'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', atualizarValidacao);
+    });
+
+    // Botões fixos
+    document.getElementById('btn-elec-salvar')?.addEventListener('click', saveSim);
+    document.getElementById('btn-elec-novo')?.addEventListener('click', () => novaSim(false));
   }
 
   /* ============================================================
@@ -618,11 +669,7 @@ let totalVotos = 0;
   async function openCalculator() {
     if (!initialized) {
       initialized = true;
-      ['elec-votos-validos','elec-votos-brancos','elec-votos-nulos'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', atualizarValidacao);
-      });
-      document.getElementById('btn-elec-salvar')?.addEventListener('click', saveSim);
-      document.getElementById('btn-elec-novo')?.addEventListener('click', () => novaSim(false));
+      bindGlobalListeners();
       addPartido(); addPartido();
       await migrateLegacyData();
     }
