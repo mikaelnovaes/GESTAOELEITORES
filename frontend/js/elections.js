@@ -329,12 +329,17 @@
       return { ...p, candidatos: p.candidatos.map(c => ({ ...c, votos: +c.votos || 0 })), votosNominais, total };
     });
 
-    if (totalVotos === 0) {
+   if (totalVotos === 0) {
       rdiv.innerHTML = '<div class="elec-alert elec-alert-red">Informe os votos de ao menos um candidato ou o total geral do partido.</div>';
       return;
     }
 
-    const QE    = arredondarQE(totalVotos / cadeiras);
+    // ⚖️ Base do Quociente Eleitoral (Código Eleitoral, art. 106):
+    // É o TOTAL DE VOTOS VÁLIDOS da urna, não a soma dos votos dos partidos cadastrados.
+    // Se o usuário informou "Votos válidos", usa esse valor (forma correta).
+    // Senão, faz fallback para a soma dos partidos (modo cálculo rápido).
+    const baseQE = votosValidos > 0 ? votosValidos : totalVotos;
+    const QE    = arredondarQE(baseQE / cadeiras);
     const min10 = QE * 0.1;
     const min80 = QE * 0.8;
     const min20 = QE * 0.2;
@@ -470,7 +475,7 @@
         <div class="elec-metric-card">
           <div class="elec-metric-label">Quociente eleitoral</div>
           <div class="elec-metric-value">${fmt(QE)}</div>
-          <div class="elec-metric-sub">votos ÷ ${cadeiras} cadeiras</div>
+          <div class="elec-metric-sub">${votosValidos > 0 ? `${fmt(votosValidos)} válidos` : `${fmt(totalVotos)} votos`} ÷ ${cadeiras} cadeiras</div>
         </div>
         <div class="elec-metric-card">
           <div class="elec-metric-label">Mínimo individual</div>
