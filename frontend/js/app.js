@@ -541,7 +541,7 @@ async function openEleitorForm(eleitor) {
   document.getElementById('f-escola').value       = eleitor?.escola_votacao || '';
    const fLid = document.getElementById('f-lideranca');
   if (fLid) {
-    if (e && e.lideranca_id) {
+    if (eleitor && eleitor.lideranca_id) {
       document.getElementById('eleitor-id').dataset.lidId = String(e.lideranca_id);
     } else {
       delete document.getElementById('eleitor-id').dataset.lidId;
