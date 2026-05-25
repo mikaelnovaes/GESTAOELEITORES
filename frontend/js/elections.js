@@ -167,13 +167,10 @@
     atualizarValidacao();
   }
 
-  function atualizarValidacao() {
+function atualizarValidacao() {
     const validos = +document.getElementById('elec-votos-validos')?.value || 0;
-    const brancos = +document.getElementById('elec-votos-brancos')?.value || 0;
-    const nulos   = +document.getElementById('elec-votos-nulos')?.value || 0;
-    const total = validos + brancos + nulos;
     const displayEl = document.getElementById('elec-total-urna-display');
-    if (displayEl) displayEl.textContent = total > 0 ? total.toLocaleString('pt-BR') : '—';
+    if (displayEl) displayEl.textContent = validos > 0 ? validos.toLocaleString('pt-BR') : '—';
   }
   window.GEElec_atualizarValidacao = atualizarValidacao;
 
