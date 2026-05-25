@@ -185,6 +185,7 @@ router.put('/:id',
     body('nome').trim().notEmpty().isLength({ max: 200 }),
     body('email').optional({ nullable: true, checkFalsy: true }).isEmail().isLength({ max: 200 }),
     body('data_nascimento').optional({ nullable: true, checkFalsy: true }).isDate(),
+    body('lideranca_id').optional({ nullable: true, checkFalsy: true }).toInt().isInt({ min: 1 }),
   ],
   async (req, res) => {
     if (hasErrors(req, res)) return;
@@ -195,8 +196,9 @@ router.put('/:id',
            nome = $1, data_nascimento = $2, telefone = $3,
            email = $4, endereco = $5, numero = $6,
            bairro = $7, cidade = $8, titulo_eleitor = $9,
-           secao = $10, escola_votacao = $11, atualizado_em = NOW()
-         WHERE id = $12 AND tenant_id = $13 AND ativo = TRUE
+           secao = $10, escola_votacao = $11, lideranca_id = $12,
+           atualizado_em = NOW()
+         WHERE id = $13 AND tenant_id = $14 AND ativo = TRUE
          RETURNING id`,
         [
           clean(d.nome, 200),
@@ -210,6 +212,7 @@ router.put('/:id',
           clean(d.titulo_eleitor, 20),
           clean(d.secao, 10),
           clean(d.escola_votacao, 200),
+          d.lideranca_id || null,
           req.params.id,
           req.user.tenant_id,
         ]
