@@ -403,7 +403,10 @@ let totalVotos = 0;
       sobras--;
     }
 
-    const totalCadeirasPreenchidas = data.reduce((s, p) => s + p.eleitos.length, 0);
+  const temCandidatos = data.some(p => p.candidatos.length > 0);
+    const totalCadeirasPreenchidas = temCandidatos
+      ? data.reduce((s, p) => s + p.eleitos.length, 0)
+      : data.reduce((s, p) => s + p.vagasQP + p.sobraObtidas, 0);
     const diffPartidos = totalVotos - votosValidos;
     status.textContent = `${totalCadeirasPreenchidas}/${cadeiras} cadeiras`;
     rdiv.innerHTML = buildResultHTML({
