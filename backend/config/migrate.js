@@ -13,72 +13,6 @@ const db = require('./database');
 
 const MIGRATION = /* sql */ `
 
--- ── Colunas novas na tabela eleitores ──────────────────────
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS lideranca_id      BIGINT NULL REFERENCES liderancas(id) ON DELETE SET NULL;
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_status   VARCHAR(20) NOT NULL DEFAULT 'pending';
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_at       TIMESTAMPTZ NULL;
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_attempt  INT NOT NULL DEFAULT 0;
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS latitude          NUMERIC(10,7) NULL;
-ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS longitude         NUMERIC(10,7) NULL;
-
-CREATE INDEX IF NOT EXISTS idx_eleitores_lideranca ON eleitores (lideranca_id);
-CREATE INDEX IF NOT EXISTS idx_eleitores_geocode   ON eleitores (geocoded_status);
-
--- ── Tabela liderancas ───────────────────────────────────────
-CREATE TABLE IF NOT EXISTS liderancas (
-  id                      BIGSERIAL    PRIMARY KEY,
-  tenant_id               BIGINT       NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  nome                    VARCHAR(200) NOT NULL,
-  data_nascimento         DATE         NULL,
-  telefone                VARCHAR(20)  NULL,
-  email                   VARCHAR(200) NULL,
-  endereco                VARCHAR(300) NULL,
-  numero                  VARCHAR(20)  NULL,
-  bairro                  VARCHAR(100) NULL,
-  cidade                  VARCHAR(100) NULL,
-  titulo_eleitor          VARCHAR(20)  NULL,
-  secao                   VARCHAR(10)  NULL,
-  escola_votacao          VARCHAR(200) NULL,
-  cargo                   VARCHAR(100) NULL,
-  partido                 VARCHAR(50)  NULL,
-  area_atuacao            VARCHAR(200) NULL,
-  expectativa_total       INT          NULL DEFAULT 0,
-  expectativa_nao_vinculados INT       NULL DEFAULT 0,
-  observacoes             TEXT         NULL,
-  foto_url                TEXT         NULL,
-  geocoded_status         VARCHAR(20)  NOT NULL DEFAULT 'pending',
-  geocoded_at             TIMESTAMPTZ  NULL,
-  geocoded_attempt        INT          NOT NULL DEFAULT 0,
-  latitude                NUMERIC(10,7) NULL,
-  longitude               NUMERIC(10,7) NULL,
-  ativo                   BOOLEAN      NOT NULL DEFAULT TRUE,
-  criado_por              BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-  criado_em               TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  atualizado_em           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_liderancas_tenant ON liderancas (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_liderancas_ativo  ON liderancas (ativo);
-CREATE INDEX IF NOT EXISTS idx_liderancas_geocode ON liderancas (geocoded_status);
-
--- ── Tabela simulacoes_eleitorais ────────────────────────────
-CREATE TABLE IF NOT EXISTS simulacoes_eleitorais (
-  id            BIGSERIAL    PRIMARY KEY,
-  tenant_id     BIGINT       NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  criado_por    BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-  nome          VARCHAR(200) NOT NULL DEFAULT 'Simulação',
-  municipio     VARCHAR(200) NULL,
-  cadeiras      INT          NOT NULL DEFAULT 15,
-  votos_validos INT          NOT NULL DEFAULT 0,
-  votos_brancos INT          NOT NULL DEFAULT 0,
-  votos_nulos   INT          NOT NULL DEFAULT 0,
-  partidos_json TEXT         NOT NULL DEFAULT '[]',
-  resultado_json TEXT        NULL,
-  criado_em     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  atualizado_em TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_simulacoes_tenant ON simulacoes_eleitorais (tenant_id);
 
 -- ============================================================
 -- EXTENSÕES
@@ -295,7 +229,77 @@ SELECT id FROM tenants WHERE id NOT IN (SELECT tenant_id FROM birthday_config);
 
 INSERT INTO reactivation_config (tenant_id)
 SELECT id FROM tenants WHERE id NOT IN (SELECT tenant_id FROM reactivation_config);
+
+-- ── Tabela liderancas ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS liderancas (
+  id                         BIGSERIAL     PRIMARY KEY,
+  tenant_id                  BIGINT        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  nome                       VARCHAR(200)  NOT NULL,
+  data_nascimento            DATE          NULL,
+  telefone                   VARCHAR(20)   NULL,
+  email                      VARCHAR(200)  NULL,
+  endereco                   VARCHAR(300)  NULL,
+  numero                     VARCHAR(20)   NULL,
+  bairro                     VARCHAR(100)  NULL,
+  cidade                     VARCHAR(100)  NULL,
+  titulo_eleitor             VARCHAR(20)   NULL,
+  secao                      VARCHAR(10)   NULL,
+  escola_votacao             VARCHAR(200)  NULL,
+  cargo                      VARCHAR(100)  NULL,
+  partido                    VARCHAR(50)   NULL,
+  area_atuacao               VARCHAR(200)  NULL,
+  expectativa_total          INT           NULL DEFAULT 0,
+  expectativa_nao_vinculados INT           NULL DEFAULT 0,
+  observacoes                TEXT          NULL,
+  foto_url                   TEXT          NULL,
+  geocoded_status            VARCHAR(20)   NOT NULL DEFAULT 'pending',
+  geocoded_at                TIMESTAMPTZ   NULL,
+  geocoded_attempt           INT           NOT NULL DEFAULT 0,
+  latitude                   NUMERIC(10,7) NULL,
+  longitude                  NUMERIC(10,7) NULL,
+  ativo                      BOOLEAN       NOT NULL DEFAULT TRUE,
+  criado_por                 BIGINT        NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  criado_em                  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  atualizado_em              TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_liderancas_tenant  ON liderancas (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_liderancas_ativo   ON liderancas (ativo);
+CREATE INDEX IF NOT EXISTS idx_liderancas_geocode ON liderancas (geocoded_status);
+
+-- ── Tabela simulacoes_eleitorais ────────────────────────────
+CREATE TABLE IF NOT EXISTS simulacoes_eleitorais (
+  id             BIGSERIAL     PRIMARY KEY,
+  tenant_id      BIGINT        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  criado_por     BIGINT        NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  nome           VARCHAR(200)  NOT NULL DEFAULT 'Simulação',
+  municipio      VARCHAR(200)  NULL,
+  cadeiras       INT           NOT NULL DEFAULT 15,
+  votos_validos  INT           NOT NULL DEFAULT 0,
+  votos_brancos  INT           NOT NULL DEFAULT 0,
+  votos_nulos    INT           NOT NULL DEFAULT 0,
+  partidos_json  TEXT          NOT NULL DEFAULT '[]',
+  resultado_json TEXT          NULL,
+  criado_em      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  atualizado_em  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_simulacoes_tenant ON simulacoes_eleitorais (tenant_id);
+
+-- ── Colunas novas na tabela eleitores ──────────────────────
+-- (liderancas já existe acima — FK é segura agora)
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS lideranca_id     BIGINT        NULL REFERENCES liderancas(id) ON DELETE SET NULL;
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_status  VARCHAR(20)   NOT NULL DEFAULT 'pending';
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_at      TIMESTAMPTZ   NULL;
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS geocoded_attempt INT           NOT NULL DEFAULT 0;
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS latitude         NUMERIC(10,7) NULL;
+ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS longitude        NUMERIC(10,7) NULL;
+
+CREATE INDEX IF NOT EXISTS idx_eleitores_lideranca ON eleitores (lideranca_id);
+CREATE INDEX IF NOT EXISTS idx_eleitores_geocode   ON eleitores (geocoded_status);
 `;
+
+
 
 async function runMigration() {
   console.log('🔄 Iniciando migração do banco de dados...');
