@@ -44,13 +44,13 @@ app.set('trust proxy', 1);
    ============================================================ */
 app.use(helmet({
   contentSecurityPolicy: {
-    directives: {
+   directives: {
       defaultSrc:  ["'self'"],
-      scriptSrc:   ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
-      styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      scriptSrc:   ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
+      styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://unpkg.com'],
       fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
-      imgSrc:      ["'self'", 'data:', 'blob:'],
-      connectSrc:  ["'self'", 'https://graph.facebook.com'],
+      imgSrc:      ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://unpkg.com'],
+      connectSrc:  ["'self'", 'https://graph.facebook.com', 'https://nominatim.openstreetmap.org'],
       frameSrc:    ["'none'"],
       objectSrc:   ["'none'"],
       baseUri:     ["'self'"],
