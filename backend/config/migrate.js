@@ -112,17 +112,19 @@ WHERE ativo = TRUE;
 -- Demais tabelas (whatsapp_config, templates, log, robôs)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS whatsapp_config (
-  id              INT          PRIMARY KEY DEFAULT 1,
+  tenant_id       BIGINT       PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
   phone_id        VARCHAR(50)  NULL,
   access_token    TEXT         NULL,
   waba_id         VARCHAR(50)  NULL,
   proxy_url       VARCHAR(500) NULL,
   country_code    VARCHAR(5)   NOT NULL DEFAULT '55',
   atualizado_em   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  atualizado_por  BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL,
-  CHECK (id = 1)
+  atualizado_por  BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL
 );
-INSERT INTO whatsapp_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Garantir uma linha de config para cada tenant existente
+INSERT INTO whatsapp_config (tenant_id)
+SELECT id FROM tenants WHERE id NOT IN (SELECT tenant_id FROM whatsapp_config);
 
 CREATE TABLE IF NOT EXISTS whatsapp_templates (
   id        BIGSERIAL    PRIMARY KEY,
