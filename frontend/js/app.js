@@ -341,6 +341,7 @@ const handlers = {
     reports:           () => { syncFromAPI().then(renderReport); },
     liderancas:        () => window.GELiderancas?.openList(),
     'liderancas-report': () => window.GELiderancas?.openReport(),
+    mapa:              () => window.GEMapa?.openMap(),
     new:               () => populateLiderancaDropdown(),
     'whatsapp-send':   () => window.GEWhatsApp?.openWhatsAppSend(),
     'whatsapp-config': () => window.GEWhatsApp?.openWhatsAppConfig(),
