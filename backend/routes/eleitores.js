@@ -59,20 +59,21 @@ router.get('/',
 
     try {
       // Sempre filtra por tenant + ativo
-      const conditions = ['ativo = TRUE', 'tenant_id = $1'];
-      const params     = [req.user.tenant_id];
-      let   pIdx       = 2;
+   // Sempre filtra por tenant + ativo
+const conditions = ['e.ativo = TRUE', 'e.tenant_id = $1'];
+const params     = [req.user.tenant_id];
+let   pIdx       = 2;
 
-      if (nome)   { conditions.push(`nome   ILIKE $${pIdx++}`); params.push(`%${nome}%`); }
-      if (bairro) { conditions.push(`bairro ILIKE $${pIdx++}`); params.push(`%${bairro}%`); }
-      if (cidade) { conditions.push(`cidade ILIKE $${pIdx++}`); params.push(`%${cidade}%`); }
+if (nome)   { conditions.push(`e.nome   ILIKE $${pIdx++}`); params.push(`%${nome}%`); }
+if (bairro) { conditions.push(`e.bairro ILIKE $${pIdx++}`); params.push(`%${bairro}%`); }
+if (cidade) { conditions.push(`e.cidade ILIKE $${pIdx++}`); params.push(`%${cidade}%`); }
 
-      const where = conditions.join(' AND ');
+const where = conditions.join(' AND ');
 
-      const countR = await db.query(
-        `SELECT COUNT(*)::INT AS total FROM eleitores WHERE ${where}`,
-        params
-      );
+const countR = await db.query(
+  `SELECT COUNT(*)::INT AS total FROM eleitores e WHERE ${where}`,
+  params
+);
       const total = countR.rows[0].total;
 
    const dataR = await db.query(
