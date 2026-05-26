@@ -27,7 +27,7 @@ const robotsRoutes    = require('./routes/robots');
 const masterRoutes    = require('./routes/master');
 const electionsRoutes = require('./routes/elections-route');
 const liderancasRoutes = require('./routes/liderancas-route');
-const mapaRoutes       = require('./routes/mapa');
+const mapaRoutes       = require('./routes/mapa-route');
 
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler }   = require('./middleware/errorHandler');
