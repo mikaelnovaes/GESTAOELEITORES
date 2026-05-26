@@ -23,7 +23,7 @@ function hasErrors(req, res) {
    ROBÔ DE ANIVERSÁRIO
    ============================================================ */
 
-router.get('/birthday/config', async (req, res) => {
+router.get('/birthday/config', requireAdmin, async (req, res) => {
   try {
     const r = await db.query(
       `SELECT enabled, mode, text_message, template_name, template_lang,
@@ -98,7 +98,7 @@ router.put('/birthday/config',
 );
 
 /* GET aniversariantes de hoje (do tenant) */
-router.get('/birthday/today', async (req, res) => {
+router.get('/birthday/today', requireAdmin, async (req, res) => {
   try {
     const r = await db.query(
       `SELECT id, nome, telefone, bairro, cidade, data_nascimento
@@ -121,7 +121,7 @@ router.get('/birthday/today', async (req, res) => {
    ROBÔ DE REATIVAÇÃO
    ============================================================ */
 
-router.get('/reactivation/config', async (req, res) => {
+router.get('/reactivation/config', requireAdmin, async (req, res) => {
   try {
     const r = await db.query(
       `SELECT enabled, mode, text_message, template_name, template_lang,
