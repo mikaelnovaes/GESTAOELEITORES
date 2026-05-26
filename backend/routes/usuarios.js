@@ -27,7 +27,7 @@ function hasErrors(req, res) {
 }
 
 /* ── GET /api/usuarios ───────────────────────────────────── */
-router.get('/', async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   try {
     const r = await db.query(
       `SELECT id, nome, login, tipo, ativo, ultimo_login, criado_em
