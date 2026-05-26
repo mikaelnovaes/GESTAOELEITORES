@@ -163,7 +163,8 @@ function checkAndRunBirthday() {
 }
 
 function startBirthdayWatcher() {
-  setTimeout(checkAndRunBirthday, 5000);
+  // Aguarda 15s para garantir que syncFromAPI já rodou e o cache está populado
+  setTimeout(checkAndRunBirthday, 15000);
   setInterval(checkAndRunBirthday, 5 * 60 * 1000);
 }
 
@@ -386,7 +387,7 @@ function checkAndRunReactivation() {
 }
 
 function startReactivationWatcher() {
-  setTimeout(checkAndRunReactivation, 7000);
+  setTimeout(checkAndRunReactivation, 15000);
   setInterval(checkAndRunReactivation, 5 * 60 * 1000);
 }
 
