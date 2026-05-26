@@ -14,6 +14,7 @@
 
 'use strict';
 
+const geocoder = require('../services/geocoder');
 const express = require('express');
 const { body, param, validationResult, query } = require('express-validator');
 const db = require('../config/database');
@@ -212,6 +213,7 @@ router.post('/',
         ]
       );
       const created = r.rows[0];
+      geocoder.geocodeInBackground(db, 'liderancas', Number(created.id), req.user.tenant_id);
       res.status(201).json({ id: Number(created.id), criado_em: created.criado_em });
     } catch (err) {
       console.error('[LIDERANCAS] POST /:', err);
@@ -295,6 +297,11 @@ router.put('/:id',
       res.json({ success: true, atualizado_em: r.rows[0].atualizado_em });
     } catch (err) {
       console.error('[LIDERANCAS] PUT /:id:', err);
+      await db.query(
+  `UPDATE liderancas SET geocoded_status='pending' WHERE id=$1 AND tenant_id=$2`,
+  [req.params.id, req.user.tenant_id]
+);
+geocoder.geocodeInBackground(db, 'liderancas', Number(req.params.id), req.user.tenant_id);
       res.status(500).json({ error: 'Erro ao atualizar liderança.' });
     }
   }
