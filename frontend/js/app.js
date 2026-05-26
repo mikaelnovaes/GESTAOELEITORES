@@ -545,7 +545,7 @@ async function openEleitorForm(eleitor) {
    const fLid = document.getElementById('f-lideranca');
   if (fLid) {
     if (eleitor && eleitor.lideranca_id) {
-      document.getElementById('eleitor-id').dataset.lidId = String(e.lideranca_id);
+      document.getElementById('eleitor-id').dataset.lidId = String(eleitor.lideranca_id);
     } else {
       delete document.getElementById('eleitor-id').dataset.lidId;
     }
