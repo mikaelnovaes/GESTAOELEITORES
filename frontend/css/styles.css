@@ -805,3 +805,144 @@ tr:hover td { background: rgba(201,169,97,0.04); }
   .lid-form-fields { grid-template-columns: 1fr; padding: 1rem; }
 }
 
+/* ============================================================
+   MAPA ELEITORAL — adicionar ao final de frontend/css/styles.css
+   ============================================================ */
+
+/* Layout da view do mapa */
+.map-view-wrap {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: calc(100vh - 60px); /* desconta topo */
+  min-height: 500px;
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.map-toolbar select,
+.map-toolbar input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 0.85rem;
+  background: #fff;
+  font-family: inherit;
+}
+.map-toolbar select:focus,
+.map-toolbar input:focus { outline: none; border-color: var(--gold); }
+
+.map-toolbar-spacer { flex: 1; }
+
+.map-status {
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding-right: 0.6rem;
+}
+
+/* Stats grid no topo */
+.map-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+  padding: 0.8rem 1.2rem;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.map-stat {
+  padding: 0.4rem 0.7rem;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.map-stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.map-stat-value {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.map-stat-value.warn { color: var(--warning); }
+.map-stat-value.danger { color: var(--danger); }
+.map-stat-value.ok { color: var(--success); }
+
+/* O container do mapa em si */
+#mapa-container {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  background: #e8e8e0;
+}
+
+/* Marker personalizado */
+.ge-mapa-marker { background: transparent !important; border: none !important; }
+.ge-mapa-marker svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25)); }
+
+/* Popup customizado */
+.leaflet-popup-content-wrapper {
+  border-radius: 4px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18) !important;
+}
+.leaflet-popup-content { margin: 12px 14px !important; min-width: 200px; font-family: inherit; }
+.ge-popup-tipo {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.2rem;
+}
+.ge-popup-nome {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+.ge-popup-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  font-style: italic;
+}
+.ge-popup-line {
+  font-size: 0.82rem;
+  color: var(--text);
+  margin-top: 0.2rem;
+  line-height: 1.4;
+}
+.ge-popup-line strong {
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+}
+
+/* Cluster styling (Leaflet.markercluster) — opcional tweak */
+.marker-cluster-small  { background-color: rgba(201, 169, 97, 0.4); }
+.marker-cluster-small div { background-color: rgba(201, 169, 97, 0.85); color: #fff; font-weight: 600; }
+.marker-cluster-medium { background-color: rgba(91, 141, 238, 0.45); }
+.marker-cluster-medium div { background-color: rgba(91, 141, 238, 0.9); color: #fff; font-weight: 600; }
+.marker-cluster-large  { background-color: rgba(14, 43, 92, 0.5); }
+.marker-cluster-large  div { background-color: rgba(14, 43, 92, 0.95); color: #fff; font-weight: 600; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .map-view-wrap { height: calc(100vh - 50px); }
+  .map-toolbar { padding: 0.5rem 0.7rem; }
+  .map-toolbar select, .map-toolbar input { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+  .map-stats { padding: 0.5rem 0.7rem; }
+}
