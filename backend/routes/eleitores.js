@@ -9,6 +9,7 @@ const express = require('express');
 const bcrypt  = require('bcrypt');
 const { body, query, param, validationResult } = require('express-validator');
 const db      = require('../config/database');
+const geocoder = require('../services/geocoder');
 const { requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -169,7 +170,9 @@ router.post('/',
           req.user.id,
         ]
       );
-      const created = r.rows[0];
+     const created = r.rows[0];
+      // Geocodifica em background (não bloqueia resposta)
+      geocoder.geocodeInBackground(db, 'eleitores', Number(created.id), req.user.tenant_id);
       res.status(201).json({ id: Number(created.id), criado_em: created.criado_em });
     } catch (err) {
       console.error('[ELEITORES] POST /:', err);
@@ -218,6 +221,11 @@ router.put('/:id',
         ]
       );
       if (!r.rowCount) return res.status(404).json({ error: 'Eleitor não encontrado.' });
+     await db.query(
+        `UPDATE eleitores SET geocoded_status='pending' WHERE id=$1 AND tenant_id=$2`,
+        [req.params.id, req.user.tenant_id]
+      );
+      geocoder.geocodeInBackground(db, 'eleitores', Number(req.params.id), req.user.tenant_id);
       res.json({ success: true });
     } catch (err) {
       console.error('[ELEITORES] PUT /:id:', err);
@@ -373,6 +381,21 @@ router.post('/importar',
       });
 
       await logAudit(req, 'ELEITORES_IMPORT', { imported, failed });
+           (async () => {
+        try {
+          const r = await db.query(
+            `SELECT id FROM eleitores
+             WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending'
+             ORDER BY criado_em DESC LIMIT 500`,
+            [req.user.tenant_id]
+          );
+          for (const row of r.rows) {
+            await geocoder.geocodeAndUpdate(db, 'eleitores', Number(row.id), req.user.tenant_id);
+          }
+        } catch (e) {
+          console.error('[ELEITORES] geocode pós-importação:', e.message);
+        }
+      })();
       res.json({ imported, failed, errors });
     } catch (err) {
       console.error('[ELEITORES] POST /importar:', err);
