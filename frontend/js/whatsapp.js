@@ -117,6 +117,7 @@ function setStyle(id, k, v) { const el = document.getElementById(id); if (el) el
    VIEW: ENVIAR
    ============================================================ */
 async function openWhatsAppSend() {
+     waSelectedIds.clear(); // limpa seleção anterior ao reabrir
   const warn = document.getElementById('wa-config-warning');
   if (warn) {
     try {
