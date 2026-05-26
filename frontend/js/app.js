@@ -884,7 +884,7 @@ function showToast(msg, type = '') {
   toastTimer = setTimeout(() => toastEl.className = '', 3500);
 }
 window.showToast = showToast;
-window.escapeHtml = (s) => window.GESecurity?.Sanitizer?.escapeHtml(s) ?? String(s ?? '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+/*window.escapeHtml = (s) => window.GESecurity?.Sanitizer?.escapeHtml(s) ?? String(s ?? '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));/*
 window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.calculateAge = calculateAge;
