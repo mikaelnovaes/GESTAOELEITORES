@@ -27,6 +27,7 @@ const robotsRoutes    = require('./routes/robots');
 const masterRoutes    = require('./routes/master');
 const electionsRoutes = require('./routes/elections-route');
 const liderancasRoutes = require('./routes/liderancas-route');
+const mapaRoutes       = require('./routes/mapa');
 
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler }   = require('./middleware/errorHandler');
@@ -150,6 +151,7 @@ app.use('/api/usuarios',  authMiddleware, usuariosRoutes);
 app.use('/api/robots',    authMiddleware, robotsRoutes);
 app.use('/api/elections', authMiddleware, electionsRoutes);
 app.use('/api/liderancas', authMiddleware, liderancasRoutes);
+app.use('/api/mapa',       authMiddleware, mapaRoutes);
 
 /* SPA FALLBACK */
 app.get('*', (req, res) => {
