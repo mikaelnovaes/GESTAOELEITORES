@@ -73,19 +73,21 @@ function clearActing() {
 
 // Tenant ativo no momento (master em modo acting OU usuário normal).
 // Usado pelo cache local (data.js) para detectar vazamento entre tenants.
-window.getCurrentTenantId = function() {
-  // Modo acting do master → tenant é o do acting
-  var acting = sessionStorage.getItem('ge_acting_tenant');
-  if (acting) return String(acting);
-  // Usuário normal → tenant é o do user logado
+window.getCurrentTenantId = function getCurrentTenantId() {
   try {
-    var raw = sessionStorage.getItem('ge_user');
-    if (raw) {
-      var u = JSON.parse(raw);
-      return u && u.tenant_id ? String(u.tenant_id) : null;
-    }
-  } catch(e) {}
-  return null;
+    // 1) Master atuando como tenant
+    var acting = sessionStorage.getItem('ge_acting_tenant');
+    if (acting) return acting;
+    // 2) Usuário regular: ler do JWT armazenado
+    var token = sessionStorage.getItem('ge_jwt_token');
+    if (!token) return null;
+    var parts = token.split('.');
+    if (parts.length < 2) return null;
+    var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.tenant_id != null ? String(payload.tenant_id) : null;
+  } catch(e) {
+    return null;
+  }
 };
 
 /* ============================================================
