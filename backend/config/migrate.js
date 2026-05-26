@@ -1,6 +1,7 @@
 /**
  * backend/config/migrate.js
  * Cria todas as tabelas + cria usuário MASTER automaticamente.
+ 
  *
  * Para BANCOS EXISTENTES, rode também: correcoes/1_MIGRACAO_BANCO.sql
  * Para adicionar o MASTER em banco existente: correcoes/3_MIGRACAO_MASTER.sql
