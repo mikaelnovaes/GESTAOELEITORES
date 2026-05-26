@@ -77,9 +77,12 @@
       <button class="nav-btn" data-view="birthday">Aniversários</button>
       <button class="nav-btn" data-view="reactivation">Reativação</button>
 
-           <div class="nav-section">Lideranças</div>
+      <div class="nav-section">Lideranças</div>
       <button class="nav-btn" data-view="liderancas">Lideranças</button>
       <button class="nav-btn" data-view="liderancas-report">Relatório de Lideranças</button>
+
+      <div class="nav-section">Geografia</div>
+      <button class="nav-btn" data-view="mapa">Mapa Eleitoral</button>
 
       <div class="nav-section admin-only" style="display:none">Eleições</div>
       <button class="nav-btn admin-only" data-view="elections-calc" style="display:none">Calculadora Eleitoral</button>
@@ -588,6 +591,52 @@
         </div>
       </div>
     </div>
+
+    <!-- MAPA ELEITORAL -->
+    <section id="view-mapa" class="view" style="padding:0;">
+      <div class="panel" style="height:100%;display:flex;flex-direction:column;">
+        <div class="panel-header">
+          <div>
+            <div class="panel-subtitle">Geografia</div>
+            <div class="panel-title">Mapa Eleitoral</div>
+          </div>
+          <div class="header-actions">
+            <span id="map-status" class="map-status">—</span>
+            <button class="btn btn-secondary" id="btn-map-refresh">↻ Atualizar</button>
+            <button class="btn btn-primary admin-only" id="btn-map-geocode-pendentes" style="display:none;">Geocodificar pendentes</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="map-stats">
+          <div class="map-stat"><div class="map-stat-label">Eleitores total</div><div class="map-stat-value" id="map-stat-e-total">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">No mapa</div><div class="map-stat-value ok" id="map-stat-e-geocoded">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">Pendentes</div><div class="map-stat-value warn" id="map-stat-e-pending">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">Falhas</div><div class="map-stat-value danger" id="map-stat-e-failed">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">Lideranças total</div><div class="map-stat-value" id="map-stat-l-total">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">No mapa</div><div class="map-stat-value ok" id="map-stat-l-geocoded">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">Pendentes</div><div class="map-stat-value warn" id="map-stat-l-pending">—</div></div>
+          <div class="map-stat"><div class="map-stat-label">Falhas</div><div class="map-stat-value danger" id="map-stat-l-failed">—</div></div>
+        </div>
+
+        <!-- Toolbar/filtros -->
+        <div class="map-toolbar">
+          <select id="map-filter-tipo">
+            <option value="ambos">Eleitores + Lideranças</option>
+            <option value="eleitor">Só eleitores</option>
+            <option value="lideranca">Só lideranças</option>
+          </select>
+          <select id="map-filter-bairro"><option value="">Todos os bairros</option></select>
+          <select id="map-filter-cidade"><option value="">Todas as cidades</option></select>
+          <select id="map-filter-lideranca"><option value="">Todas as lideranças</option></select>
+          <button class="btn btn-secondary" id="btn-map-clear-filters">Limpar</button>
+          <div class="map-toolbar-spacer"></div>
+        </div>
+
+        <!-- Container do mapa -->
+        <div id="mapa-container" style="flex:1;"></div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -730,6 +779,7 @@
 <script src="js/import.js?v=5"></script>
   <script src="js/elections.js?v=3"></script>
   <script src="js/liderancas.js?v=1"></script>
+    <script src="js/mapa.js?v=1"></script>
   <script src="js/app.js?v=5"></script>
 </body>
 </html>
