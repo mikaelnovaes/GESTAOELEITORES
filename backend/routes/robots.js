@@ -1,6 +1,6 @@
 /**
  * backend/routes/robots.js
- * Configuração e execução dos robôs (Aniversário e Reativação)
+ * Configuração e execução dos robôs (Aniversá rio e Reativação)
  * por tenant. Persistência via PostgreSQL — resolve os pontos 8, 9 e 7.
  */
 
