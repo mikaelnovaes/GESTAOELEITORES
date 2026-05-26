@@ -73,6 +73,11 @@ function clearActing() {
 
 // Tenant ativo no momento (master em modo acting OU usuário normal).
 // Usado pelo cache local (data.js) para detectar vazamento entre tenants.
+
+
+/*
+
+************** getCurrentTenantId definida em data.js (carregado antes)*************
 window.getCurrentTenantId = function getCurrentTenantId() {
   try {
     // 1) Master atuando como tenant
@@ -89,6 +94,11 @@ window.getCurrentTenantId = function getCurrentTenantId() {
     return null;
   }
 };
+
+************** getCurrentTenantId definida em data.js (carregado antes)*************
+
+*/
+
 
 /* ============================================================
    API CLIENT — envia X-Acting-Tenant quando aplicável
