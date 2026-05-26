@@ -1,5 +1,5 @@
 /**
- * backend/routes/eleitores.js 
+ * backend/routes/eleitores.js  
  * CRUD de eleitores — multi-tenant + segurança reforçada
  */
 
