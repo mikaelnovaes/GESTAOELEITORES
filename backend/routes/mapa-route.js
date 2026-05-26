@@ -151,13 +151,13 @@ router.post('/geocode-pendentes',
       // Conta quantos serão processados
       const eR = await db.query(
         `SELECT id FROM eleitores
-         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending'
+         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('pending', 'failed')
          LIMIT 500`,
         [req.user.tenant_id]
       );
       const lR = await db.query(
         `SELECT id FROM liderancas
-         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending'
+         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('pending', 'failed')
          LIMIT 500`,
         [req.user.tenant_id]
       );
