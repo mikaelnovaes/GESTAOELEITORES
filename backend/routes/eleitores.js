@@ -104,6 +104,32 @@ router.get('/',
   }
 );
 
+/* ── GET /api/eleitores/meta/stats ───────────────────────── */
+router.get('/meta/stats', async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT
+        COUNT(*)::INT                                              AS total_ativos,
+        COUNT(*) FILTER (WHERE telefone IS NOT NULL)::INT          AS com_telefone,
+        COUNT(*) FILTER (WHERE email    IS NOT NULL)::INT          AS com_email,
+        COUNT(DISTINCT bairro) FILTER (WHERE bairro IS NOT NULL)::INT AS bairros,
+        COUNT(DISTINCT cidade) FILTER (WHERE cidade IS NOT NULL)::INT AS cidades
+      FROM eleitores WHERE tenant_id = $1 AND ativo = TRUE
+    `, [req.user.tenant_id]);
+
+    // Também total histórico (incluindo soft-deleted)
+    const h = await db.query(
+      `SELECT COUNT(*)::INT AS total_historico FROM eleitores WHERE tenant_id = $1`,
+      [req.user.tenant_id]
+    );
+
+    res.json({ ...r.rows[0], total_historico: h.rows[0].total_historico });
+  } catch {
+    res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
+  }
+});
+
+
 /* ── GET /api/eleitores/:id ──────────────────────────────── */
 router.get('/:id',
   [param('id').isInt({ min: 1 }).toInt()],
@@ -408,29 +434,5 @@ router.post('/importar',
   }
 );
 
-/* ── GET /api/eleitores/meta/stats ───────────────────────── */
-router.get('/meta/stats', async (req, res) => {
-  try {
-    const r = await db.query(`
-      SELECT
-        COUNT(*)::INT                                              AS total_ativos,
-        COUNT(*) FILTER (WHERE telefone IS NOT NULL)::INT          AS com_telefone,
-        COUNT(*) FILTER (WHERE email    IS NOT NULL)::INT          AS com_email,
-        COUNT(DISTINCT bairro) FILTER (WHERE bairro IS NOT NULL)::INT AS bairros,
-        COUNT(DISTINCT cidade) FILTER (WHERE cidade IS NOT NULL)::INT AS cidades
-      FROM eleitores WHERE tenant_id = $1 AND ativo = TRUE
-    `, [req.user.tenant_id]);
-
-    // Também total histórico (incluindo soft-deleted)
-    const h = await db.query(
-      `SELECT COUNT(*)::INT AS total_historico FROM eleitores WHERE tenant_id = $1`,
-      [req.user.tenant_id]
-    );
-
-    res.json({ ...r.rows[0], total_historico: h.rows[0].total_historico });
-  } catch {
-    res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
-  }
-});
 
 module.exports = router;
