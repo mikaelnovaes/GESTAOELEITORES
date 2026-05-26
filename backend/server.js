@@ -28,6 +28,8 @@ const masterRoutes    = require('./routes/master');
 const electionsRoutes = require('./routes/elections-route');
 const liderancasRoutes = require('./routes/liderancas-route');
 const mapaRoutes       = require('./routes/mapa-route');
+const { requireMaster } = require('./middleware/auth');
+
 
 const { authMiddleware } = require('./middleware/auth');
 const { errorHandler }   = require('./middleware/errorHandler');
@@ -141,7 +143,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRoutes);
 
 // MASTER (rotas exclusivas)
-app.use('/api/master', authMiddleware, masterRoutes);
+app.use('/api/master', authMiddleware, requireMaster, masterRoutes);
 
 // Rotas normais (master também acessa, personificando tenant)
 app.use('/api/eleitores/admin/purge', purgeLimiter);
