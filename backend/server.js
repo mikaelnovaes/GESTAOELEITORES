@@ -21,7 +21,7 @@ const { runMigration }  = require('./config/migrate');
 // Rotas
 const authRoutes      = require('./routes/auth');
 const eleitoresRoutes = require('./routes/eleitores');
-const whatsappRoutes  = require('./routes/whatsapp');
+const whatsappRoutes  = require('./routes/whatsapp-route');
 const usuariosRoutes  = require('./routes/usuarios');
 const robotsRoutes    = require('./routes/robots');
 const masterRoutes    = require('./routes/master');
