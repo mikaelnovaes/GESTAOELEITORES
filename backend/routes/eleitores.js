@@ -383,13 +383,12 @@ router.post('/importar',
       await logAudit(req, 'ELEITORES_IMPORT', { imported, failed });
            (async () => {
         try {
-     const result = await db.query(
-  `SELECT e.*, l.nome AS lideranca_nome
-     FROM eleitores e
-     LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
-    WHERE e.tenant_id = $1 AND e.ativo = TRUE
-    ORDER BY ...`,
-  [req.tenant_id, ...]
+   const r = await db.query(
+            `SELECT id FROM eleitores
+             WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending'
+             ORDER BY criado_em DESC LIMIT 500`,
+            [req.user.tenant_id]
+          );
 );
           for (const row of r.rows) {
             await geocoder.geocodeAndUpdate(db, 'eleitores', Number(row.id), req.user.tenant_id);
