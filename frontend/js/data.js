@@ -125,7 +125,20 @@ var WALog = {
   },
   clear: function() { this.save([]); }
 };
-
+window.getCurrentTenantId = function getCurrentTenantId() {
+  try {
+    var acting = sessionStorage.getItem('ge_acting_tenant');
+    if (acting) return acting;
+    var token = sessionStorage.getItem('ge_jwt_token');
+    if (!token) return null;
+    var parts = token.split('.');
+    if (parts.length < 2) return null;
+    var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.tenant_id != null ? String(payload.tenant_id) : null;
+  } catch(e) {
+    return null;
+  }
+};
 // Exportar
 window.GEData = {
   STORAGE_KEYS: STORAGE_KEYS,
