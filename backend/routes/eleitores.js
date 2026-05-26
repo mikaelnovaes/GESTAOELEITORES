@@ -75,14 +75,16 @@ router.get('/',
       );
       const total = countR.rows[0].total;
 
-      const dataR = await db.query(
-        `SELECT id, nome, data_nascimento, telefone, email,
-                endereco, numero, bairro, cidade,
-                titulo_eleitor, secao, escola_votacao,
-                foto_url, lideranca_id, criado_em, atualizado_em
-         FROM eleitores
+   const dataR = await db.query(
+        `SELECT e.id, e.nome, e.data_nascimento, e.telefone, e.email,
+                e.endereco, e.numero, e.bairro, e.cidade,
+                e.titulo_eleitor, e.secao, e.escola_votacao,
+                e.foto_url, e.lideranca_id, e.criado_em, e.atualizado_em,
+                l.nome AS lideranca_nome
+         FROM eleitores e
+         LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
          WHERE ${where}
-         ORDER BY nome ASC
+         ORDER BY e.nome ASC
          LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
         [...params, pageSize, offset]
       );
@@ -108,13 +110,15 @@ router.get('/:id',
   async (req, res) => {
     if (hasErrors(req, res)) return;
     try {
-      const r = await db.query(
-        `SELECT id, nome, data_nascimento, telefone, email,
-                endereco, numero, bairro, cidade,
-                titulo_eleitor, secao, escola_votacao, foto_url,
-                lideranca_id, criado_em, atualizado_em
-         FROM eleitores
-         WHERE id = $1 AND tenant_id = $2 AND ativo = TRUE`,
+    const r = await db.query(
+        `SELECT e.id, e.nome, e.data_nascimento, e.telefone, e.email,
+                e.endereco, e.numero, e.bairro, e.cidade,
+                e.titulo_eleitor, e.secao, e.escola_votacao, e.foto_url,
+                e.lideranca_id, e.criado_em, e.atualizado_em,
+                l.nome AS lideranca_nome
+         FROM eleitores e
+         LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
+         WHERE e.id = $1 AND e.tenant_id = $2 AND e.ativo = TRUE`,
         [req.params.id, req.user.tenant_id]
       );
       if (!r.rowCount) return res.status(404).json({ error: 'Eleitor não encontrado.' });
@@ -166,7 +170,7 @@ router.post('/',
           clean(d.titulo_eleitor, 20),
           clean(d.secao, 10),
           clean(d.escola_votacao, 200),
-          d.lideranca_id || null,
+          d.lideranca_id ? Number(d.lideranca_id) : null,
           req.user.id,
         ]
       );
