@@ -577,11 +577,8 @@ function openDetailModal(e) {
         ${e.data_nascimento ? `<div style="color:var(--muted);font-size:0.88rem;margin-top:0.2rem;">Nascimento: ${formatDate(e.data_nascimento)} (${calculateAge(e.data_nascimento)} anos)</div>` : ''}
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1.4rem;">
-      modalBody.innerHTML = `
-    <div>Bairro: ${e.bairro}</div>
-    <div>Cidade: ${e.cidade}</div>
-     ${[['Telefone', e.telefone], ['E-mail', e.email], ['Endereço', [e.endereco, e.numero].filter(Boolean).join(', ')], ['Bairro', e.bairro], ['Cidade', e.cidade], ['Título', e.titulo_eleitor], ['Seção', e.secao], ['Local', e.escola_votacao]].filter(([,v]) => v).map(([label,value]) => `
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1.4rem;">
+   ${[['Telefone', e.telefone], ['E-mail', e.email], ['Liderança', e.lideranca_nome || null], ['Endereço', [e.endereco, e.numero].filter(Boolean).join(', ')], ['Bairro', e.bairro], ['Cidade', e.cidade], ['Título', e.titulo_eleitor], ['Seção', e.secao], ['Local', e.escola_votacao]].filter(([,v]) => v).map(([label,value]) => `
         <div style="background:var(--cream);padding:0.6rem 0.8rem;border-radius:4px;">
           <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:0.2rem;">${escapeHtml(label)}</div>
           <div style="font-size:0.9rem;color:var(--ink);">${escapeHtml(value)}</div>
