@@ -600,7 +600,7 @@ document.getElementById('btn-modal-delete')?.addEventListener('click', async (ev
   await deleteEleitor(id);
 });
 
-/* ============================================================
+/* =============================================================
    RELATÓRIO (mantido da v3.0)
    ============================================================ */
 function renderReport() {
