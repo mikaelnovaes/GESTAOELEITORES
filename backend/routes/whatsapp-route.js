@@ -13,6 +13,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db      = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
+const { encrypt, decrypt } = require('../services/crypto');
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ router.put('/config',
            atualizado_em = NOW(),
            atualizado_por = $5
          WHERE tenant_id = $6`,
-        [phone_id, access_token, waba_id, country_code || '55', req.user.id, req.user.tenant_id]
+        [phone_id, access_token ? encrypt(access_token) : null, waba_id, country_code || '55', req.user.id, req.user.tenant_id]
       );
       res.json({ success: true });
     } catch (err) {
@@ -169,6 +170,7 @@ router.post('/send',
         [req.user.tenant_id]
       );
       const cfg = cR.rows[0];
+      if (cfg?.access_token) cfg.access_token = decrypt(cfg.access_token) || cfg.access_token;
       if (!cfg?.phone_id || !cfg?.access_token) {
         return res.status(400).json({ error: 'WhatsApp não configurado para este ambiente. Configure em "Configurar API".' });
       }
