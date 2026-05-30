@@ -54,9 +54,112 @@
 <!-- ========================= APP ========================= -->
 <div class="app-wrapper" id="app">
 
-  <nav class="navbar-top" id="navbar-top">
-    ... (todo o snippet)
-  </nav>
+<!-- ════════════════════════════════════════════════════════════
+     NAVBAR HORIZONTAL — substituir TODO o bloco <nav class="navbar-top">
+     ════════════════════════════════════════════════════════════ -->
+<nav class="navbar-top" id="navbar-top">
+  <button class="navbar-toggle" id="navbar-toggle" aria-label="Menu">☰</button>
+
+  <div class="navbar-brand">
+    <div class="brand-mark">G</div>
+    <h2>Gestão de Eleitores</h2>
+  </div>
+
+  <ul class="navbar-menu" id="navbar-menu">
+
+    <!-- 1. Dashboard -->
+    <li class="navbar-item">
+      <button class="navbar-link" data-view="dashboard">📊 Dashboard</button>
+    </li>
+
+    <!-- 2. Eleitores -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">👥 Eleitores <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="list">Todos os Eleitores</button></li>
+        <li><button class="navbar-dropdown-item" data-view="new">Novo Cadastro</button></li>
+        <li><button class="navbar-dropdown-item" data-view="import">Importar Excel</button></li>
+        <li><button class="navbar-dropdown-item" data-view="reports">Relatórios</button></li>
+      </ul>
+    </li>
+
+    <!-- 3. Lideranças -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">⭐ Lideranças <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="liderancas">Lideranças</button></li>
+        <li><button class="navbar-dropdown-item" data-view="liderancas-report">Relatório de Lideranças</button></li>
+      </ul>
+    </li>
+
+    <!-- 4. Mapa Eleitoral -->
+    <li class="navbar-item">
+      <button class="navbar-link" data-view="mapa">🗺️ Mapa Eleitoral</button>
+    </li>
+
+    <!-- 5. Agenda -->
+    <li class="navbar-item">
+      <button class="navbar-link" data-view="agenda">📅 Agenda</button>
+    </li>
+
+    <!-- 6. WhatsApp -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">💬 WhatsApp <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="whatsapp-send">Enviar Mensagem</button></li>
+        <li><button class="navbar-dropdown-item" data-view="disparo">Disparo Segmentado</button></li>
+        <li><button class="navbar-dropdown-item" data-view="whatsapp-log">Histórico</button></li>
+        <li class="admin-only" style="display:none"><div class="navbar-dropdown-sep"></div></li>
+        <li class="admin-only" style="display:none"><button class="navbar-dropdown-item" data-view="whatsapp-config">Configurar API</button></li>
+      </ul>
+    </li>
+
+    <!-- 7. Estratégia -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">🎯 Estratégia <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="projecao">Projeção de Votos</button></li>
+        <li class="admin-only" style="display:none"><button class="navbar-dropdown-item" data-view="elections-calc">Calculadora Eleitoral</button></li>
+      </ul>
+    </li>
+
+    <!-- 8. Etiquetas -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">🏷️ Etiquetas <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="etiquetas-gerar">Gerar Etiquetas</button></li>
+        <li><button class="navbar-dropdown-item" data-view="etiquetas-historico">Visualizar Etiquetas</button></li>
+      </ul>
+    </li>
+
+    <!-- 9. Robôs -->
+    <li class="navbar-item" data-dropdown>
+      <button class="navbar-link">🤖 Robôs <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="robots">Central de Robôs</button></li>
+        <li><button class="navbar-dropdown-item" data-view="birthday">Aniversários</button></li>
+        <li><button class="navbar-dropdown-item" data-view="reactivation">Reativação</button></li>
+      </ul>
+    </li>
+
+    <!-- 10. Admin -->
+    <li class="navbar-item admin-only" data-dropdown style="display:none">
+      <button class="navbar-link">⚙️ Admin <span class="caret">▼</span></button>
+      <ul class="navbar-dropdown">
+        <li><button class="navbar-dropdown-item" data-view="users">Usuários</button></li>
+      </ul>
+    </li>
+  </ul>
+
+  <!-- Usuário à direita -->
+  <div class="navbar-user">
+    <div class="navbar-user-info">
+      <div class="navbar-user-name" id="navbar-user-name">—</div>
+      <div class="navbar-user-role" id="navbar-user-role">—</div>
+    </div>
+    <button class="navbar-logout" id="navbar-logout-btn" title="Sair">Sair</button>
+  </div>
+</nav>
 
   <aside>
     <div class="sidebar-brand">
