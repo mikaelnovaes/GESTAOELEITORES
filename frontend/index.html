@@ -141,7 +141,7 @@
       </div>
     </section>
 
-    <button class="btn btn-secondary" id="btn-gerar-etiquetas">📄 Gerar Etiquetas</button>
+ 
     
     <!-- NOVO / EDITAR -->
     <section id="view-new" class="view">
@@ -819,6 +819,29 @@
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════ ETIQUETAS — GERAR (atalho) ═══════════════════ -->
+<section id="view-etiquetas-gerar" class="view">
+  <div class="panel" style="padding:3rem 2rem;text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:0.5rem;">🏷️</div>
+    <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);margin-bottom:0.5rem;">
+      Gerar Etiquetas
+    </div>
+    <div style="color:var(--muted);margin-bottom:1.5rem;">
+      Escolha o tamanho e os filtros para imprimir etiquetas dos eleitores cadastrados.
+    </div>
+    <button class="btn btn-primary" id="btn-abrir-modal-etiquetas" style="font-size:1rem;padding:0.7rem 2rem;">
+      📄 Abrir gerador
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════ ETIQUETAS — HISTÓRICO ═══════════════════ -->
+<section id="view-etiquetas-historico" class="view">
+  <div id="etiquetas-historico-content"></div>
+</section>
+
+    
     
   </main>
 </div>
@@ -926,7 +949,19 @@
   </div>
 </div>
 
-  
+  <div class="modal-overlay" id="modal-etq-preview">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title">Pré-visualização</div>
+      <button class="modal-close" data-close="modal-etq-preview">×</button>
+    </div>
+    <div class="modal-body" id="etq-preview-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-etq-preview">Fechar</button>
+      <button class="btn btn-primary" id="btn-etq-preview-reimprimir">🖨️ Reimprimir</button>
+    </div>
+  </div>
+</div>
 
   
 <div class="modal-overlay" id="wa-progress-modal">
