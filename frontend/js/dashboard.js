@@ -1,6 +1,6 @@
 /**
  * frontend/js/dashboard.js  (v2 — com filtros)
- * Dashboard com filtros por bairro, cidade e liderança
+ * Dashboard com filtros por bairro, cidade e liderança 
  * Expõe: window.GEDashboard.openDashboard()
  */
 
