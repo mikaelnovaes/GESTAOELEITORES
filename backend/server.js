@@ -29,6 +29,10 @@ const electionsRoutes = require('./routes/elections-route');
 const liderancasRoutes = require('./routes/liderancas-route');
 const mapaRoutes       = require('./routes/mapa-route');
 const { requireMaster } = require('./middleware/auth');
+const projecaoRoutes   = require('./routes/projecao-route');
+const agendaRoutes     = require('./routes/agenda-route');
+const dashboardRoutes  = require('./routes/dashboard-route');
+const disparoRoutes    = require('./routes/disparo-route');
 
 
 const { authMiddleware } = require('./middleware/auth');
@@ -154,6 +158,16 @@ app.use('/api/robots',    authMiddleware, robotsRoutes);
 app.use('/api/elections', authMiddleware, electionsRoutes);
 app.use('/api/liderancas', authMiddleware, liderancasRoutes);
 app.use('/api/mapa',       authMiddleware, mapaRoutes);
+app.use('/api/projecao',  authMiddleware, projecaoRoutes);
+app.use('/api/dashboard', authMiddleware, dashboardRoutes);
+app.use('/api/disparo',   authMiddleware, disparoRoutes);
+app.use('/api/agenda', (req, res, next) => {
+  // Permite /publico/:token sem autenticação
+  if (req.path.startsWith('/publico/')) return next();
+  // Resto exige autenticação
+  return authMiddleware(req, res, next);
+}, agendaRoutes);
+
 
 /* SPA FALLBACK */
 app.get('*', (req, res) => {
