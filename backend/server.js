@@ -33,6 +33,7 @@ const projecaoRoutes   = require('./routes/projecao-route');
 const agendaRoutes     = require('./routes/agenda-route');
 const dashboardRoutes  = require('./routes/dashboard-route');
 const disparoRoutes    = require('./routes/disparo-route');
+const etiquetasRoutes  = require('./routes/etiquetas-route');
 
 
 const { authMiddleware } = require('./middleware/auth');
@@ -160,6 +161,7 @@ app.use('/api/liderancas', authMiddleware, liderancasRoutes);
 app.use('/api/mapa',       authMiddleware, mapaRoutes);
 app.use('/api/projecao',  authMiddleware, projecaoRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
+app.use('/api/etiquetas', authMiddleware, etiquetasRoutes);
 app.use('/api/disparo',   authMiddleware, disparoRoutes);
 app.use('/api/agenda', (req, res, next) => {
   // Permite /publico/:token sem autenticação
