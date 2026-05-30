@@ -758,17 +758,15 @@
     </section>
 
     <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
-<div id="view-dashboard" style="display:none;">
+<section id="view-dashboard" class="view">
   <div id="dashboard-content"></div>
-</div>
-
+</section>
 <!-- ═══════════════════ PROJEÇÃO ═══════════════════ -->
-<div id="view-projecao" style="display:none;">
+<section id="view-projecao" class="view">
   <div id="projecao-content"></div>
-</div>
-
+</section>
 <!-- ═══════════════════ AGENDA ═══════════════════ -->
-<div id="view-agenda" style="display:none;">
+<section id="view-agenda" class="view">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
     <div>
       <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
@@ -783,15 +781,16 @@
     <div class="panel" style="padding:1rem;">
       <div style="font-weight:600;color:var(--navy);margin-bottom:1rem;">Próximos eventos</div>
       <div id="agenda-lista-eventos"></div>
-    </div>
-  </div>
 </div>
+  </div>
+</section>
 
 <!-- ═══════════════════ DISPARO SEGMENTADO ═══════════════════ -->
-<div id="view-disparo" style="display:none;">
-  <div id="disparo-content"></div>
-</div>
 
+<!-- ═══════════════════ DISPARO SEGMENTADO ═══════════════════ -->
+<section id="view-disparo" class="view">
+  <div id="disparo-content"></div>
+</section>
 <!-- ═══════════════════ MODAL: FORMULÁRIO DE EVENTO ═══════════════════ -->
 <div class="modal-overlay" id="modal-agenda-form">
   <div class="modal" style="max-width:560px;">
