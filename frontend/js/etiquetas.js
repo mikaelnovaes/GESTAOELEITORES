@@ -2,7 +2,7 @@
  * frontend/js/etiquetas.js  (v2 — com histórico e preview)
  * Expõe:
  *   - window.GEEtiquetas.abrirGerar()      → abre o modal de gerar
- *   - window.GEEtiquetas.openHistorico()   → abre a view de histórico
+ *   - window.GEEtiquetas.openHistorico()   → abre a view de histórico 
  */
 
 'use strict';
