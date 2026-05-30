@@ -946,3 +946,40 @@ tr:hover td { background: rgba(201,169,97,0.04); }
   .map-toolbar select, .map-toolbar input { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
   .map-stats { padding: 0.5rem 0.7rem; }
 }
+
+/* ═══════════ AGENDA — CALENDÁRIO ═══════════ */
+.agenda-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.agenda-dow {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 0.4rem 0;
+}
+.agenda-cell {
+  background: var(--cream);
+  border-radius: 4px;
+  min-height: 50px;
+  padding: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+  position: relative;
+}
+.agenda-cell.vazio { background: transparent; }
+.agenda-cell.hoje {
+  background: var(--gold);
+  color: #fff;
+  font-weight: 700;
+}
+.agenda-cell.tem-evento { background: #fef3c7; }
+.agenda-cell.tem-evento:hover { background: #fde68a; }
+.agenda-cell.hoje.tem-evento { background: var(--gold); }
+.agenda-dia-num { font-weight: 600; }
+.agenda-pontinhos { line-height: 1; margin-top: 2px; }
