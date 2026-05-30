@@ -297,6 +297,65 @@ ALTER TABLE eleitores ADD COLUMN IF NOT EXISTS longitude        NUMERIC(10,7) NU
 
 CREATE INDEX IF NOT EXISTS idx_eleitores_lideranca ON eleitores (lideranca_id);
 CREATE INDEX IF NOT EXISTS idx_eleitores_geocode   ON eleitores (geocoded_status);
+
+-- ============================================================
+-- NOVOS MÓDULOS: projecao, agenda, dashboard, disparo
+-- ============================================================
+
+-- Campos de intenção de voto na tabela eleitores
+ALTER TABLE eleitores
+  ADD COLUMN IF NOT EXISTS intencao_voto    VARCHAR(20)  NULL
+    CHECK (intencao_voto IS NULL OR intencao_voto IN ('confirmado','provavel','indeciso','risco','contra'));
+ALTER TABLE eleitores
+  ADD COLUMN IF NOT EXISTS meta_votos_notas TEXT         NULL;
+ALTER TABLE eleitores
+  ADD COLUMN IF NOT EXISTS ultimo_contato   TIMESTAMPTZ  NULL;
+
+CREATE INDEX IF NOT EXISTS idx_eleitores_intencao        ON eleitores (intencao_voto);
+CREATE INDEX IF NOT EXISTS idx_eleitores_ultimo_contato  ON eleitores (ultimo_contato);
+
+-- Meta de votos por tenant
+CREATE TABLE IF NOT EXISTS meta_votos (
+  tenant_id     BIGINT      PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  meta          INT         NOT NULL DEFAULT 0,
+  candidato     VARCHAR(200) NULL,
+  cargo         VARCHAR(100) NULL,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO meta_votos (tenant_id)
+SELECT id FROM tenants
+WHERE id NOT IN (SELECT tenant_id FROM meta_votos);
+
+-- Agenda do Candidato
+CREATE TABLE IF NOT EXISTS agenda_eventos (
+  id             BIGSERIAL    PRIMARY KEY,
+  tenant_id      BIGINT       NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  titulo         VARCHAR(300) NOT NULL,
+  descricao      TEXT         NULL,
+  tipo           VARCHAR(30)  NOT NULL DEFAULT 'evento'
+    CHECK (tipo IN ('evento','reuniao','visita','comicio','entrevista','outro')),
+  data_inicio    TIMESTAMPTZ  NOT NULL,
+  data_fim       TIMESTAMPTZ  NULL,
+  local_nome     VARCHAR(300) NULL,
+  local_endereco VARCHAR(400) NULL,
+  bairro         VARCHAR(100) NULL,
+  cidade         VARCHAR(100) NULL,
+  lideranca_id   BIGINT       NULL REFERENCES liderancas(id) ON DELETE SET NULL,
+  notificar_eleitores BOOLEAN NOT NULL DEFAULT FALSE,
+  notificados    INT          NOT NULL DEFAULT 0,
+  token_publico  VARCHAR(64)  NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32),'hex'),
+  ativo          BOOLEAN      NOT NULL DEFAULT TRUE,
+  criado_por     BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  criado_em      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  atualizado_em  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agenda_tenant    ON agenda_eventos (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agenda_data      ON agenda_eventos (data_inicio);
+CREATE INDEX IF NOT EXISTS idx_agenda_ativo     ON agenda_eventos (ativo);
+CREATE INDEX IF NOT EXISTS idx_agenda_token     ON agenda_eventos (token_publico);
+CREATE INDEX IF NOT EXISTS idx_agenda_lideranca ON agenda_eventos (lideranca_id);
 `;
 
 
