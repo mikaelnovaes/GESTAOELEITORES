@@ -356,6 +356,26 @@ CREATE INDEX IF NOT EXISTS idx_agenda_data      ON agenda_eventos (data_inicio);
 CREATE INDEX IF NOT EXISTS idx_agenda_ativo     ON agenda_eventos (ativo);
 CREATE INDEX IF NOT EXISTS idx_agenda_token     ON agenda_eventos (token_publico);
 CREATE INDEX IF NOT EXISTS idx_agenda_lideranca ON agenda_eventos (lideranca_id);
+
+CREATE TABLE IF NOT EXISTS etiquetas_log (
+  id              BIGSERIAL    PRIMARY KEY,
+  tenant_id       BIGINT       NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  gerado_por      BIGINT       NULL REFERENCES usuarios(id) ON DELETE SET NULL,
+  gerado_por_nome VARCHAR(200) NULL,
+  tamanho         VARCHAR(20)  NOT NULL,
+  quantidade      INT          NOT NULL DEFAULT 0,
+  folhas          INT          NOT NULL DEFAULT 0,
+  filtro_bairro   VARCHAR(100) NULL,
+  filtro_cidade   VARCHAR(100) NULL,
+  escopo          VARCHAR(20)  NOT NULL DEFAULT 'todos',
+  ids_eleitores   TEXT         NULL,
+  criado_em       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_etiquetas_log_tenant ON etiquetas_log (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_etiquetas_log_data   ON etiquetas_log (criado_em DESC);
+
+
 `;
 
 
