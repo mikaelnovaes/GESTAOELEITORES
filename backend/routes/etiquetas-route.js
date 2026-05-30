@@ -1,5 +1,5 @@
 /**
- * backend/routes/etiquetas-route.js
+ * backend/routes/etiquetas-route.js 
  * Histórico de geração de etiquetas
  */
 
