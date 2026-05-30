@@ -354,7 +354,9 @@ const handlers = {
     liderancas:        () => window.GELiderancas?.openList(),
     'liderancas-report': () => window.GELiderancas?.openReport(),
     mapa:              () => window.GEMapa?.openMap(),
-    'dashboard':      () => window.GEDashboard?.openDashboard(),
+    'dashboard':              () => window.GEDashboard?.openDashboard(),
+    'etiquetas-gerar':        () => {/* só mostra a tela; o botão abre o modal */},
+    'etiquetas-historico':    () => window.GEEtiquetas?.openHistorico(),
     'projecao':       () => window.GEProjecao?.openProjecao(),
     'agenda':         () => window.GEAgenda?.openAgenda(),
     'disparo':        () => window.GEDisparo?.openDisparo(),
@@ -612,6 +614,10 @@ document.getElementById('btn-modal-delete')?.addEventListener('click', async (ev
   const id = Number(ev.target.dataset.deleteId);
   document.getElementById('detail-modal').classList.remove('show');
   await deleteEleitor(id);
+});
+
+document.getElementById('btn-abrir-modal-etiquetas')?.addEventListener('click', () => {
+  window.GEEtiquetas?.abrirGerar?.();
 });
 
 /* =============================================================
