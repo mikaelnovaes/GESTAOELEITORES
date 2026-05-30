@@ -84,6 +84,11 @@
       <div class="nav-section">Geografia</div>
       <button class="nav-btn" data-view="mapa">Mapa Eleitoral</button>
 
+      <button class="nav-btn" data-view="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-view="projecao">🎯 Projeção</button>
+      <button class="nav-btn" data-view="agenda">📅 Agenda</button>
+      <button class="nav-btn" data-view="disparo">📤 Disparo Seg.</button>
+
       <div class="nav-section admin-only" style="display:none">Eleições</div>
       <button class="nav-btn admin-only" data-view="elections-calc" style="display:none">Calculadora Eleitoral</button>
 
@@ -127,6 +132,8 @@
       </div>
     </section>
 
+    <button class="btn btn-secondary" id="btn-gerar-etiquetas">📄 Gerar Etiquetas</button>
+    
     <!-- NOVO / EDITAR -->
     <section id="view-new" class="view">
       <div class="panel">
@@ -637,6 +644,173 @@
         <div id="mapa-container" style="flex:1;"></div>
       </div>
     </section>
+
+    <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+<div id="view-dashboard" style="display:none;">
+  <div id="dashboard-content"></div>
+</div>
+
+<!-- ═══════════════════ PROJEÇÃO ═══════════════════ -->
+<div id="view-projecao" style="display:none;">
+  <div id="projecao-content"></div>
+</div>
+
+<!-- ═══════════════════ AGENDA ═══════════════════ -->
+<div id="view-agenda" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
+        Agenda do Candidato
+      </div>
+      <div style="font-size:0.85rem;color:var(--muted);">Eventos, reuniões e visitas</div>
+    </div>
+    <button class="btn btn-primary" id="btn-novo-evento">+ Novo Evento</button>
+  </div>
+  <div style="display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:flex-start;">
+    <div class="panel" style="padding:1rem;" id="agenda-calendario"></div>
+    <div class="panel" style="padding:1rem;">
+      <div style="font-weight:600;color:var(--navy);margin-bottom:1rem;">Próximos eventos</div>
+      <div id="agenda-lista-eventos"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ DISPARO SEGMENTADO ═══════════════════ -->
+<div id="view-disparo" style="display:none;">
+  <div id="disparo-content"></div>
+</div>
+
+<!-- ═══════════════════ MODAL: FORMULÁRIO DE EVENTO ═══════════════════ -->
+<div class="modal-overlay" id="modal-agenda-form">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title" id="agenda-form-titulo-modal">Novo Evento</div>
+      <button class="modal-close" data-close="modal-agenda-form">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ag-id">
+      <div class="form-group">
+        <label>Título *</label>
+        <input type="text" id="ag-titulo" maxlength="300" placeholder="Ex: Comício no Centro">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="ag-tipo">
+            <option value="evento">🎯 Evento</option>
+            <option value="reuniao">🤝 Reunião</option>
+            <option value="visita">🚗 Visita</option>
+            <option value="comicio">📢 Comício</option>
+            <option value="entrevista">🎙️ Entrevista</option>
+            <option value="outro">📌 Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Liderança vinculada</label>
+          <select id="ag-lideranca"><option value="">— Nenhuma —</option></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+        <div class="form-group">
+          <label>Início *</label>
+          <input type="datetime-local" id="ag-data-inicio">
+        </div>
+        <div class="form-group">
+          <label>Fim (opcional)</label>
+          <input type="datetime-local" id="ag-data-fim">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Local (nome)</label>
+        <input type="text" id="ag-local-nome" maxlength="300" placeholder="Ex: Praça Central">
+      </div>
+      <div class="form-group">
+        <label>Endereço</label>
+        <input type="text" id="ag-local-endereco" maxlength="400">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+        <div class="form-group">
+          <label>Bairro</label>
+          <input type="text" id="ag-bairro" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" id="ag-cidade" maxlength="100">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="ag-descricao" rows="3" maxlength="2000"></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+          <input type="checkbox" id="ag-notificar">
+          <span>Marcar para notificar eleitores via WhatsApp</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-agenda-form">Cancelar</button>
+      <button class="btn btn-primary" id="btn-agenda-salvar">Salvar evento</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL: ETIQUETAS ═══════════════════ -->
+<div class="modal-overlay" id="modal-etiquetas">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Gerar Etiquetas</div>
+      <button class="modal-close" data-close="modal-etiquetas">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tamanho da etiqueta (retangular)</label>
+        <select id="etq-tamanho">
+          <option value="carta">33,9 × 99,0 mm — 24 por folha (mais comum)</option>
+          <option value="media">50,8 × 101,6 mm — 10 por folha</option>
+          <option value="pequena">100 × 25 mm — 22 por folha</option>
+        </select>
+        <div id="etq-tamanho-desc" style="font-size:0.78rem;color:var(--muted);margin-top:0.3rem;"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Quem incluir</label>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+            <input type="radio" name="etq-escopo" value="todos" checked>
+            <span>Todos os eleitores ativos</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+            <input type="radio" name="etq-escopo" value="filtrados">
+            <span>Filtrar por bairro/cidade abaixo</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+        <div class="form-group">
+          <label>Bairro</label>
+          <input type="text" id="etq-filtro-bairro" placeholder="Opcional">
+        </div>
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" id="etq-filtro-cidade" placeholder="Opcional">
+        </div>
+      </div>
+
+      <div style="background:var(--cream);padding:0.8rem 1rem;border-radius:6px;font-size:0.82rem;color:var(--muted);">
+        💡 A etiqueta vai conter: <strong>Nome completo, Endereço (rua + número), Bairro · Cidade, CEP · UF</strong>.<br>
+        Em telas de impressão, configure margens em "0" e tamanho "A4".
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-etiquetas">Cancelar</button>
+      <button class="btn btn-primary" id="btn-etq-gerar">📄 Gerar PDF</button>
+    </div>
+  </div>
+</div>
+    
   </main>
 </div>
 
@@ -780,6 +954,10 @@
 <script src="js/elections.js?v=5"></script>
 <script src="js/liderancas.js?v=5"></script>
 <script src="js/mapa.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/agenda.js?v=1"></script>
+<script src="js/dashboard.js?v=1"></script>
+<script src="js/disparo.js?v=1"></script>
+<script src="js/etiquetas.js?v=1"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>
