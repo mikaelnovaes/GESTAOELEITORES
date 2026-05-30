@@ -1,4 +1,4 @@
-/**
+/** 
  * frontend/js/menu-topo.js
  * Controla o menu horizontal:
  *   - Abre/fecha dropdowns ao clicar
