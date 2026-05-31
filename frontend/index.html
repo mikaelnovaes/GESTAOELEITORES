@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/menu-topo.css?v=2">
+  <link rel="stylesheet" href="css/menu-topo.css?v=3">
 
   
   <!-- Leaflet (mapa) -->
@@ -21,7 +21,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js"></script>
 </head>
 <body>
 
@@ -740,6 +742,14 @@
 
         <!-- Toolbar/filtros -->
         <div class="map-toolbar">
+          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" id="map-toggle-heatmap" checked>
+            <span>🌡️ Heatmap</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" id="map-toggle-pins" checked>
+            <span>📍 Pinos</span>
+          </label>
           <select id="map-filter-tipo">
             <option value="ambos">Eleitores + Lideranças</option>
             <option value="eleitor">Só eleitores</option>
@@ -753,7 +763,10 @@
         </div>
 
         <!-- Container do mapa -->
-        <div id="mapa-container" style="flex:1;"></div>
+     <div style="flex:1;display:grid;grid-template-columns:1fr 240px;gap:0.5rem;min-height:500px;">
+          <div id="mapa-container" style="border-radius:6px;overflow:hidden;"></div>
+          <div id="mapa-analise-bairros" class="panel" style="padding:1rem;overflow-y:auto;max-height:600px;"></div>
+        </div>
       </div>
     </section>
 
@@ -767,14 +780,14 @@
 </section>
 <!-- ═══════════════════ AGENDA ═══════════════════ -->
 <section id="view-agenda" class="view">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
     <div>
       <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
         Agenda do Candidato
       </div>
       <div style="font-size:0.85rem;color:var(--muted);">Eventos, reuniões e visitas</div>
     </div>
-    <button class="btn btn-primary" id="btn-novo-evento">+ Novo Evento</button>
+    <div id="agenda-header-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
   </div>
   <div style="display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:flex-start;">
     <div class="panel" style="padding:1rem;" id="agenda-calendario"></div>
@@ -1089,6 +1102,23 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-etq-preview-full">
+  <div class="modal" style="max-width:760px;max-height:88vh;">
+    <div class="modal-header">
+      <div class="modal-title">Pré-visualização das Etiquetas</div>
+      <button class="modal-close" data-close="modal-etq-preview-full">×</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;max-height:60vh;">
+      <div id="etq-preview-info" style="margin-bottom:1rem;padding:0.7rem 1rem;background:var(--cream);border-radius:6px;font-size:0.85rem;color:var(--navy);"></div>
+      <div id="etq-preview-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-etq-preview-voltar">← Voltar e editar</button>
+      <button class="btn btn-primary" id="btn-etq-preview-confirmar">✓ Confirmar e imprimir</button>
+    </div>
+  </div>
+</div>
+  
 <div id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1099,11 +1129,12 @@
 <script src="js/import.js?v=5"></script>
 <script src="js/elections.js?v=5"></script>
 <script src="js/liderancas.js?v=5"></script>
-<script src="js/mapa.js?v=5"></script>
-<script src="js/agenda.js?v=1"></script>
-<script src="js/dashboard.js?v=2"></script>
+<script src="js/projecao.js?v=1"></script>
+<script src="js/mapa.js?v=6"></script>
+<script src="js/agenda.js?v=2"></script>
+<script src="js/dashboard.js?v=3"></script>
 <script src="js/disparo.js?v=1"></script>
-<script src="js/etiquetas.js?v=2"></script>
+<script src="js/etiquetas.js?v=3"></script>
 <script src="js/menu-topo.js?v=1"></script>
 <script src="js/app.js?v=7"></script>
 </body>
