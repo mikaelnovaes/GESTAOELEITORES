@@ -375,6 +375,20 @@ CREATE TABLE IF NOT EXISTS etiquetas_log (
 CREATE INDEX IF NOT EXISTS idx_etiquetas_log_tenant ON etiquetas_log (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_etiquetas_log_data   ON etiquetas_log (criado_em DESC);
 
+CREATE TABLE IF NOT EXISTS agenda_links_publicos (
+  tenant_id     BIGINT       PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  token         VARCHAR(64)  NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32),'hex'),
+  ativo         BOOLEAN      NOT NULL DEFAULT TRUE,
+  criado_em     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  atualizado_em TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agenda_links_token ON agenda_links_publicos (token);
+
+INSERT INTO agenda_links_publicos (tenant_id)
+SELECT id FROM tenants
+WHERE id NOT IN (SELECT tenant_id FROM agenda_links_publicos)
+ON CONFLICT (tenant_id) DO NOTHING;
 
 `;
 
