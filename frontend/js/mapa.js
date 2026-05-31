@@ -1,306 +1,364 @@
 /**
- * frontend/js/mapa.js
- * Mapa Eleitoral — Leaflet + cluster
- *
+ * frontend/js/mapa.js (v6 — heatmap + pins + polling + análise por bairro)
  * Expõe: window.GEMapa.openMap()
  *
- * Requer no HTML:
- *   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
- *   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
- *   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
- *   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
- *   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+ * REQUER no index.html:
+ *   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
  */
 
-(function() {
-  'use strict';
+'use strict';
+
+(function () {
 
   let map = null;
   let clusterGroup = null;
-  let listenersBound = false;
-  let lastPontos = [];
+  let heatLayer = null;
+  let pontos = [];
+  let pollingInterval = null;
+  let mostrarHeatmap = true;
+  let mostrarPins = true;
 
   function esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return String(s ?? '').replace(/[<>&"']/g, c =>
+      ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
-  /* ============================================================
+  /* ═══════════════════════════════════════════════
      INICIALIZAÇÃO DO MAPA
-     ============================================================ */
+  ═══════════════════════════════════════════════ */
   function ensureMap() {
     if (map) return map;
+    const container = document.getElementById('mapa-container');
+    if (!container) return null;
     if (typeof L === 'undefined') {
-      console.error('[Mapa] Leaflet não carregado.');
+      container.innerHTML = '<div style="padding:2rem;color:var(--danger);text-align:center;">Leaflet não carregou. Recarregue a página.</div>';
       return null;
     }
 
-    // Centro Brasil por default
     map = L.map('mapa-container', {
-      center: [-15.78, -47.93],
-      zoom: 4,
+      center: [-23.5505, -46.6333], // SP default
+      zoom: 11,
       zoomControl: true,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
     }).addTo(map);
 
     if (typeof L.markerClusterGroup === 'function') {
       clusterGroup = L.markerClusterGroup({
-        chunkedLoading: true,
-        spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
         maxClusterRadius: 50,
       });
       map.addLayer(clusterGroup);
-    } else {
-      console.warn('[Mapa] markercluster não disponível, usando layer simples');
-      clusterGroup = L.layerGroup().addTo(map);
     }
-
     return map;
   }
 
-  /* ============================================================
-     ÍCONES customizados
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     ÍCONES E POPUPS
+  ═══════════════════════════════════════════════ */
   function makeIcon(tipo) {
-    const color = tipo === 'lideranca' ? '#c9a961' : '#0e2b5c';
-    const ring  = tipo === 'lideranca' ? '#8a6d10' : '#06173a';
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
-        <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.27 21.73 0 14 0z" fill="${color}" stroke="${ring}" stroke-width="1.5"/>
-        <circle cx="14" cy="14" r="5" fill="#fff"/>
-      </svg>`;
+    const cor = tipo === 'lideranca' ? '#8b5cf6' : '#c9a961';
+    const icone = tipo === 'lideranca' ? '⭐' : '👤';
     return L.divIcon({
-      html: svg,
-      className: 'ge-mapa-marker',
-      iconSize: [28, 40],
-      iconAnchor: [14, 40],
-      popupAnchor: [0, -36],
+      html: `<div style="background:${cor};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);">${icone}</div>`,
+      className: 'ge-marker-icon',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
     });
   }
 
-  /* ============================================================
-     POPUP de cada ponto
-     ============================================================ */
   function buildPopup(p) {
-    const tipoLabel = p.tipo === 'lideranca' ? '★ Liderança' : '● Eleitor';
-    const tipoColor = p.tipo === 'lideranca' ? 'var(--gold)' : 'var(--navy-deep)';
-    const endereco = [
-      [p.endereco, p.numero].filter(Boolean).join(', '),
-      p.bairro, p.cidade
-    ].filter(Boolean).join(' — ');
-    const cargoPartido = p.tipo === 'lideranca'
-      ? [p.cargo, p.partido].filter(Boolean).join(' · ')
-      : '';
-
+    const titulo = esc(p.nome || '—');
+    const tipoLabel = p.tipo === 'lideranca' ? '⭐ Liderança' : '👤 Eleitor';
+    const endLinha = [p.endereco, p.numero].filter(Boolean).join(', ');
     return `
-      <div class="ge-popup">
-        <div class="ge-popup-tipo" style="color:${tipoColor};">${tipoLabel}</div>
-        <div class="ge-popup-nome">${esc(p.nome)}</div>
-        ${cargoPartido ? `<div class="ge-popup-meta">${esc(cargoPartido)}</div>` : ''}
-        ${p.telefone ? `<div class="ge-popup-line"><strong>Tel:</strong> ${esc(p.telefone)}</div>` : ''}
-        ${endereco ? `<div class="ge-popup-line"><strong>End:</strong> ${esc(endereco)}</div>` : ''}
+      <div style="min-width:200px;font-family:'Inter Tight',sans-serif;">
+        <div style="font-weight:700;font-size:1rem;color:#1e2a4a;margin-bottom:0.3rem;">${titulo}</div>
+        <div style="font-size:0.78rem;color:#6b7280;margin-bottom:0.5rem;">${tipoLabel}</div>
+        ${endLinha ? `<div style="font-size:0.85rem;margin-bottom:0.2rem;">${esc(endLinha)}</div>` : ''}
+        ${p.bairro || p.cidade ? `<div style="font-size:0.85rem;color:#4b5563;">${esc([p.bairro, p.cidade].filter(Boolean).join(' — '))}</div>` : ''}
+        ${p.telefone ? `<div style="font-size:0.85rem;color:#4b5563;margin-top:0.4rem;">📞 ${esc(p.telefone)}</div>` : ''}
+        ${p.cargo ? `<div style="font-size:0.78rem;color:#8b5cf6;margin-top:0.3rem;">🎯 ${esc(p.cargo)}</div>` : ''}
       </div>`;
   }
 
-  /* ============================================================
-     CARREGAR PONTOS DO SERVIDOR
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     CARREGAR PONTOS
+  ═══════════════════════════════════════════════ */
   async function loadPoints() {
-    if (!window.API) return;
-    const tipo    = document.getElementById('map-filter-tipo')?.value || 'ambos';
-    const bairro  = document.getElementById('map-filter-bairro')?.value || '';
-    const cidade  = document.getElementById('map-filter-cidade')?.value || '';
-    const lidId   = document.getElementById('map-filter-lideranca')?.value || '';
-
-    const params = new URLSearchParams();
-    if (tipo && tipo !== 'ambos') params.set('tipo', tipo);
-    if (bairro) params.set('bairro', bairro);
-    if (cidade) params.set('cidade', cidade);
-    if (lidId)  params.set('lideranca_id', lidId);
-
-    const statusEl = document.getElementById('map-status');
-    if (statusEl) statusEl.textContent = 'Carregando...';
-
     try {
-      const pontos = await window.API.get('/mapa/pontos' + (params.toString() ? '?' + params.toString() : ''));
-      lastPontos = Array.isArray(pontos) ? pontos : [];
+      const tipo = document.getElementById('map-filter-tipo')?.value || 'ambos';
+      const bairro = document.getElementById('map-filter-bairro')?.value || '';
+      const cidade = document.getElementById('map-filter-cidade')?.value || '';
+      const lideranca = document.getElementById('map-filter-lideranca')?.value || '';
+
+      const qs = new URLSearchParams();
+      if (tipo !== 'ambos') qs.set('tipo', tipo);
+      if (bairro) qs.set('bairro', bairro);
+      if (cidade) qs.set('cidade', cidade);
+      if (lideranca) qs.set('lideranca_id', lideranca);
+
+      const url = '/mapa/pontos' + (qs.toString() ? '?' + qs.toString() : '');
+      const r = await window.API.get(url);
+      pontos = Array.isArray(r) ? r : (r.pontos || r.data || []);
       renderPoints();
-      if (statusEl) {
-        const cntE = lastPontos.filter(p => p.tipo === 'eleitor').length;
-        const cntL = lastPontos.filter(p => p.tipo === 'lideranca').length;
-        statusEl.textContent = `${cntE} eleitor(es), ${cntL} liderança(s) no mapa`;
-      }
-      populateFilterDropdowns();
+      atualizarAnaliseBairros();
     } catch (err) {
-      if (statusEl) statusEl.textContent = 'Erro ao carregar pontos.';
-      console.error('[Mapa] loadPoints:', err);
+      window.showToast('Erro ao carregar mapa: ' + err.message, 'error');
     }
   }
 
-  /* ============================================================
-     RENDERIZAR PONTOS NO MAPA
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     RENDERIZAR PONTOS (heatmap + pins)
+  ═══════════════════════════════════════════════ */
   function renderPoints() {
-    if (!clusterGroup) return;
-    clusterGroup.clearLayers();
+    if (!map) return;
 
-    const markers = lastPontos.map(p => {
-      const m = L.marker([p.latitude, p.longitude], { icon: makeIcon(p.tipo) });
-      m.bindPopup(buildPopup(p));
-      return m;
+    // Limpa camadas anteriores
+    if (clusterGroup) clusterGroup.clearLayers();
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+
+    if (!pontos.length) {
+      document.getElementById('map-status').textContent = 'Nenhum ponto neste filtro';
+      return;
+    }
+
+    // ── HEATMAP ──
+    if (mostrarHeatmap && typeof L.heatLayer === 'function') {
+      const heatData = pontos.map(p => {
+        // Lideranças pesam mais (peso 3x), eleitores peso 1
+        const peso = p.tipo === 'lideranca' ? 3 : 1;
+        return [p.latitude, p.longitude, peso];
+      });
+      heatLayer = L.heatLayer(heatData, {
+        radius: 35,
+        blur: 25,
+        maxZoom: 17,
+        minOpacity: 0.4,
+        gradient: {
+          0.0: '#3b82f6',  // azul (frio)
+          0.3: '#22c55e',  // verde
+          0.5: '#eab308',  // amarelo
+          0.7: '#f97316',  // laranja
+          1.0: '#dc2626'   // vermelho (quente)
+        }
+      });
+      map.addLayer(heatLayer);
+    }
+
+    // ── PINS ──
+    if (mostrarPins && clusterGroup) {
+      pontos.forEach(p => {
+        if (!p.latitude || !p.longitude) return;
+        const m = L.marker([p.latitude, p.longitude], { icon: makeIcon(p.tipo) });
+        m.bindPopup(buildPopup(p));
+        clusterGroup.addLayer(m);
+      });
+    }
+
+    // Ajusta zoom para todos os pontos
+    if (pontos.length) {
+      const bounds = L.latLngBounds(pontos.map(p => [p.latitude, p.longitude]));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
+
+    document.getElementById('map-status').textContent = `${pontos.length} ponto${pontos.length !== 1 ? 's' : ''} no mapa`;
+  }
+
+  /* ═══════════════════════════════════════════════
+     ANÁLISE POR BAIRRO (termômetro lateral)
+  ═══════════════════════════════════════════════ */
+  function atualizarAnaliseBairros() {
+    const container = document.getElementById('mapa-analise-bairros');
+    if (!container) return;
+
+    // Agrupa pontos por bairro
+    const porBairro = {};
+    pontos.forEach(p => {
+      const b = p.bairro || '— Sem bairro';
+      if (!porBairro[b]) porBairro[b] = { eleitores: 0, liderancas: 0, total: 0 };
+      if (p.tipo === 'lideranca') porBairro[b].liderancas++;
+      else porBairro[b].eleitores++;
+      porBairro[b].total++;
     });
 
-    if (clusterGroup.addLayers) {
-      clusterGroup.addLayers(markers);
-    } else {
-      markers.forEach(m => clusterGroup.addLayer(m));
+    const ordenados = Object.entries(porBairro)
+      .map(([nome, v]) => ({ nome, ...v }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 15);
+
+    if (!ordenados.length) {
+      container.innerHTML = '<div style="padding:1rem;color:var(--muted);font-size:0.85rem;">Sem dados</div>';
+      return;
     }
 
-    // Ajusta o zoom para mostrar todos
-    if (markers.length > 0 && map) {
-      const group = L.featureGroup(markers);
-      try {
-        map.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 16 });
-      } catch (e) { /* ignore */ }
-    }
+    const maxTotal = ordenados[0].total;
+
+    container.innerHTML = `
+      <div style="font-weight:600;color:var(--navy);margin-bottom:0.8rem;font-size:0.9rem;">
+        🌡️ Termômetro por Bairro
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.6rem;">
+        Top ${ordenados.length} concentrações
+      </div>
+      ${ordenados.map((b, i) => {
+        const pct = (b.total / maxTotal) * 100;
+        const corBarra = pct >= 80 ? '#dc2626' :
+                         pct >= 60 ? '#f97316' :
+                         pct >= 40 ? '#eab308' :
+                         pct >= 20 ? '#22c55e' : '#3b82f6';
+        return `
+          <div style="margin-bottom:0.5rem;">
+            <div style="display:flex;justify-content:space-between;font-size:0.74rem;margin-bottom:0.15rem;">
+              <span style="color:var(--navy);font-weight:500;" title="${esc(b.nome)}">${esc(b.nome.length > 22 ? b.nome.substring(0, 22) + '…' : b.nome)}</span>
+              <span style="color:var(--muted);">${b.total}</span>
+            </div>
+            <div style="background:#f3f4f6;border-radius:99px;height:6px;overflow:hidden;">
+              <div style="background:${corBarra};height:6px;border-radius:99px;width:${pct}%;transition:width 0.3s;"></div>
+            </div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:0.1rem;">
+              👤 ${b.eleitores} · ⭐ ${b.liderancas}
+            </div>
+          </div>`;
+      }).join('')}
+    `;
   }
 
-  /* ============================================================
-     FILTROS — popula dropdowns com bairros/cidades/lideranças
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     FILTROS
+  ═══════════════════════════════════════════════ */
   function populateFilterDropdowns() {
-    // Bairros e cidades vêm dos próprios pontos
-    const bairros = [...new Set(lastPontos.map(p => p.bairro).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
-    const cidades = [...new Set(lastPontos.map(p => p.cidade).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'));
-
+    const bairros = [...new Set(pontos.map(p => p.bairro).filter(Boolean))].sort();
+    const cidades = [...new Set(pontos.map(p => p.cidade).filter(Boolean))].sort();
     fillSelect('map-filter-bairro', bairros, 'Todos os bairros');
     fillSelect('map-filter-cidade', cidades, 'Todas as cidades');
-    populateLiderancasDropdown();
   }
   function fillSelect(id, items, placeholder) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const cur = el.value;
-    el.innerHTML = `<option value="">${placeholder}</option>` +
-      items.map(v => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
-  }
-  async function populateLiderancasDropdown() {
-    const el = document.getElementById('map-filter-lideranca');
-    if (!el || !window.GELiderancas) return;
-    const cur = el.value;
-    const list = window.GELiderancas.getAll();
-    let lids = list && list.length ? list : (await window.GELiderancas.fetchAll());
-    lids = [...lids].sort((a,b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
-    el.innerHTML = `<option value="">Todas as lideranças</option>` +
-      lids.map(l => `<option value="${l.id}" ${String(l.id) === String(cur) ? 'selected' : ''}>${esc(l.nome)}</option>`).join('');
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const valorAtual = sel.value;
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      items.map(it => `<option value="${esc(it)}" ${valorAtual === it ? 'selected' : ''}>${esc(it)}</option>`).join('');
   }
 
-  /* ============================================================
-     ESTATÍSTICAS
-     ============================================================ */
+  async function populateLiderancasDropdown() {
+    if (!window.GELiderancas) return;
+    try {
+      const lids = await window.GELiderancas.fetchAll();
+      const sel = document.getElementById('map-filter-lideranca');
+      if (!sel) return;
+      const atual = sel.value;
+      sel.innerHTML = '<option value="">Todas as lideranças</option>' +
+        lids.map(l => `<option value="${l.id}" ${atual === String(l.id) ? 'selected' : ''}>${esc(l.nome)}</option>`).join('');
+    } catch {}
+  }
+
+  /* ═══════════════════════════════════════════════
+     STATS
+  ═══════════════════════════════════════════════ */
   async function loadStats() {
     try {
-      const s = await window.API.get('/mapa/stats');
-      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v == null ? '—' : v; };
-      set('map-stat-e-total',     s.eleitores_total);
-      set('map-stat-e-geocoded',  s.eleitores_geocoded);
-      set('map-stat-e-pending',   s.eleitores_pending);
-      set('map-stat-e-failed',    s.eleitores_failed);
-      set('map-stat-l-total',     s.liderancas_total);
-      set('map-stat-l-geocoded',  s.liderancas_geocoded);
-      set('map-stat-l-pending',   s.liderancas_pending);
-      set('map-stat-l-failed',    s.liderancas_failed);
-
-      const totalPend = (s.eleitores_pending || 0) + (s.liderancas_pending || 0);
-      const btn = document.getElementById('btn-map-geocode-pendentes');
-      if (btn) {
-        btn.textContent = totalPend > 0
-          ? `Geocodificar ${totalPend} pendente(s)`
-          : 'Sem pendentes';
-        btn.disabled = totalPend === 0;
-      }
-    } catch (err) {
-      console.warn('[Mapa] stats:', err.message);
-    }
+      const stats = await window.API.get('/mapa/stats');
+      const setStat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+      setStat('map-stat-e-total', stats.eleitores_total);
+      setStat('map-stat-e-geocoded', stats.eleitores_geocoded);
+      setStat('map-stat-e-pending', stats.eleitores_pending);
+      setStat('map-stat-e-failed', stats.eleitores_failed);
+      setStat('map-stat-l-total', stats.liderancas_total);
+      setStat('map-stat-l-geocoded', stats.liderancas_geocoded);
+      setStat('map-stat-l-pending', stats.liderancas_pending);
+      setStat('map-stat-l-failed', stats.liderancas_failed);
+    } catch {}
   }
 
-  /* ============================================================
-     AÇÃO: Geocodificar pendentes
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     GEOCODIFICAR PENDENTES
+  ═══════════════════════════════════════════════ */
   async function geocodePendentes() {
-    const btn = document.getElementById('btn-map-geocode-pendentes');
-    if (!btn) return;
-    if (!confirm('Iniciar geocodificação dos pendentes em segundo plano?\n\nIsso pode levar alguns minutos. Você pode continuar usando o sistema.')) return;
-    btn.disabled = true;
-    const oldText = btn.textContent;
-    btn.textContent = 'Iniciando...';
+    if (!confirm('Geocodificar endereços pendentes e falhas?\nIsso pode demorar alguns minutos.')) return;
     try {
       const r = await window.API.post('/mapa/geocode-pendentes', {});
-      if (window.showToast) window.showToast(r.message || `${r.scheduled} processando...`, 'success');
-      // Recarrega stats periodicamente
-      let iter = 0;
-      const interval = setInterval(async () => {
-        iter++;
+      window.showToast(`Processados: ${r.total || 0}. Recarregando…`, 'success');
+      setTimeout(async () => {
         await loadStats();
-        if (iter >= 30) clearInterval(interval); // 30 ciclos × 10s = 5 min
-      }, 10000);
+        await loadPoints();
+      }, 2000);
     } catch (err) {
-      if (window.showToast) window.showToast(err.message || 'Erro.', 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = oldText;
+      window.showToast('Erro: ' + err.message, 'error');
     }
   }
 
-  /* ============================================================
-     LISTENERS
-     ============================================================ */
-  function bindListeners() {
-    if (listenersBound) return;
-    listenersBound = true;
-
-    ['map-filter-tipo', 'map-filter-bairro', 'map-filter-cidade', 'map-filter-lideranca'].forEach(id => {
-      document.getElementById(id)?.addEventListener('change', loadPoints);
-    });
-
-    document.getElementById('btn-map-refresh')?.addEventListener('click', async () => {
-      await loadPoints();
+  /* ═══════════════════════════════════════════════
+     POLLING AUTOMÁTICO (30 segundos)
+  ═══════════════════════════════════════════════ */
+  function iniciarPolling() {
+    pararPolling();
+    pollingInterval = setInterval(async () => {
+      // Só atualiza se a view do mapa estiver visível
+      const view = document.getElementById('view-mapa');
+      if (!view || getComputedStyle(view).display === 'none') return;
       await loadStats();
+      await loadPoints();
+    }, 30000);
+  }
+  function pararPolling() {
+    if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+  }
+
+  /* ═══════════════════════════════════════════════
+     LISTENERS
+  ═══════════════════════════════════════════════ */
+  function bindListeners() {
+    document.getElementById('btn-map-refresh')?.addEventListener('click', async () => {
+      await loadStats(); await loadPoints();
+    });
+    document.getElementById('btn-map-geocode-pendentes')?.addEventListener('click', geocodePendentes);
+    document.getElementById('map-filter-tipo')?.addEventListener('change', loadPoints);
+    document.getElementById('map-filter-bairro')?.addEventListener('change', loadPoints);
+    document.getElementById('map-filter-cidade')?.addEventListener('change', loadPoints);
+    document.getElementById('map-filter-lideranca')?.addEventListener('change', loadPoints);
+    document.getElementById('btn-map-clear-filters')?.addEventListener('click', () => {
+      ['map-filter-tipo','map-filter-bairro','map-filter-cidade','map-filter-lideranca'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.value = '';
+      });
+      const tipo = document.getElementById('map-filter-tipo');
+      if (tipo) tipo.value = 'ambos';
+      loadPoints();
     });
 
-    document.getElementById('btn-map-geocode-pendentes')?.addEventListener('click', geocodePendentes);
-
-    document.getElementById('btn-map-clear-filters')?.addEventListener('click', () => {
-      ['map-filter-tipo', 'map-filter-bairro', 'map-filter-cidade', 'map-filter-lideranca'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
-      const tipoEl = document.getElementById('map-filter-tipo');
-      if (tipoEl) tipoEl.value = 'ambos';
-      loadPoints();
+    // Toggles
+    document.getElementById('map-toggle-heatmap')?.addEventListener('change', (ev) => {
+      mostrarHeatmap = ev.target.checked;
+      renderPoints();
+    });
+    document.getElementById('map-toggle-pins')?.addEventListener('change', (ev) => {
+      mostrarPins = ev.target.checked;
+      renderPoints();
     });
   }
 
-  /* ============================================================
-     ABRIR MAPA
-     ============================================================ */
+  /* ═══════════════════════════════════════════════
+     OPEN
+  ═══════════════════════════════════════════════ */
   async function openMap() {
-    bindListeners();
-    // Aguarda o DOM da view estar visível para Leaflet medir corretamente
-    setTimeout(() => {
+    if (typeof window.switchView === 'function') window.switchView('mapa');
+    setTimeout(async () => {
       ensureMap();
       if (map) map.invalidateSize();
-      loadPoints();
-      loadStats();
-    }, 80);
+      await loadStats();
+      await loadPoints();
+      populateFilterDropdowns();
+      await populateLiderancasDropdown();
+      bindListeners();
+      iniciarPolling();
+    }, 200);
   }
 
-  window.GEMapa = { openMap, loadPoints, loadStats };
+  window.GEMapa = { openMap, loadPoints, loadStats, pararPolling };
 
 })();
