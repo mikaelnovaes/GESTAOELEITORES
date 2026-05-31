@@ -230,7 +230,7 @@ function showApp(user) {
   });
 
   renderActingBanner();
-  switchView('list');
+  switchView('dashboard');
 }
 
 function renderActingBanner() {
@@ -331,7 +331,12 @@ document.getElementById('logout-btn')?.addEventListener('click', async () => {
 const navBtns = document.querySelectorAll('.nav-btn');
 const views   = document.querySelectorAll('.view');
 
+let _switchingView = false;
 function switchView(viewName) {
+  // Guarda contra recursão (os módulos novos chamam switchView dentro de open*())
+  if (_switchingView) return;
+  _switchingView = true;
+  try {
   // Master+admin acessam tudo
   const isPrivileged = currentUser?.tipo === 'admin' || currentUser?.tipo === 'master';
   if (viewName === 'users' && !isPrivileged) {
@@ -371,6 +376,9 @@ const handlers = {
    'elections-calc':  () => window.GEElections?.openCalculator(),
   };
   if (handlers[viewName]) handlers[viewName]();
+  } finally {
+    _switchingView = false;
+  }
 }
 window.switchView = switchView;
 
