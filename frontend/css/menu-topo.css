@@ -67,7 +67,7 @@
   list-style: none;
   margin: 0; padding: 0;
   flex: 1;
-  overflow-x: auto;
+  overflow: visible;
   scrollbar-width: none;
 }
 .navbar-menu::-webkit-scrollbar { display: none; }
