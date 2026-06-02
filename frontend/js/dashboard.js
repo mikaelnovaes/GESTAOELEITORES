@@ -1,9 +1,14 @@
 /**
- * frontend/js/dashboard.js (v3 — seletor de gráfico + análises avançadas)
- * Permite escolher TIPO de gráfico (pizza/barras/linhas) e MÉTRICA
+ * frontend/js/dashboard.js (v4 — com data labels nos gráficos)
  *
- * REQUER no index.html:
+ * MUDANÇAS vs v3:
+ *  - Adiciona plugin chartjs-plugin-datalabels para mostrar quantidade DENTRO do gráfico
+ *  - Mostra "Parque Paraíso: 265" tanto na legenda quanto sobre as barras/fatias
+ *  - Layout mais compacto (cabe em 1366×768 sem zoom)
+ *
+ * REQUER no index.html (DEPOIS do Chart.js):
  *   <script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js"></script>
+ *   <script src="https://unpkg.com/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
  */
 
 'use strict';
@@ -12,9 +17,8 @@
 
   let filtros = { bairro: '', cidade: '', lideranca_id: '' };
   let dadosCache = null;
-  let graficos = {}; // referências aos Chart.js instances
+  let graficos = {};
 
-  // CONFIGURAÇÃO DAS MÉTRICAS DISPONÍVEIS
   const METRICAS = {
     'eleitores_bairro': {
       label: 'Eleitores por Bairro',
@@ -88,23 +92,22 @@
   };
 
   const TIPOS_GRAFICO = {
-    'pie':       { label: '🥧 Pizza',           chartType: 'pie' },
-    'doughnut':  { label: '🍩 Rosca',           chartType: 'doughnut' },
-    'bar-v':     { label: '📊 Barras verticais', chartType: 'bar' },
+    'pie':       { label: '🥧 Pizza',             chartType: 'pie' },
+    'doughnut':  { label: '🍩 Rosca',             chartType: 'doughnut' },
+    'bar-v':     { label: '📊 Barras verticais',  chartType: 'bar' },
     'bar-h':     { label: '📊 Barras horizontais', chartType: 'bar' },
-    'line':      { label: '📈 Linha',           chartType: 'line' },
-    'radar':     { label: '🕸️ Radar',           chartType: 'radar' },
+    'line':      { label: '📈 Linha',             chartType: 'line' },
+    'radar':     { label: '🕸️ Radar',             chartType: 'radar' },
   };
 
   async function openDashboard() {
-    if (typeof window.switchView === 'function') window.switchView('dashboard');
     await render();
   }
 
   async function render() {
     const container = document.getElementById('dashboard-content');
     if (!container) return;
-    container.innerHTML = '<div style="padding:2rem;color:var(--muted);">Carregando dashboard…</div>';
+    container.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center;">Carregando dashboard…</div>';
 
     try {
       const qs = new URLSearchParams();
@@ -116,9 +119,11 @@
       container.innerHTML = renderHTML(dadosCache);
       bind();
 
-      // Renderiza os gráficos principais
-      renderGraficoPrincipal();
-      renderGraficoSecundario();
+      // Aguarda DOM montar antes de renderizar gráficos
+      requestAnimationFrame(() => {
+        renderGraficoPrincipal();
+        renderGraficoSecundario();
+      });
     } catch (err) {
       container.innerHTML = `<div style="padding:2rem;color:var(--danger);">Erro: ${esc(err.message)}</div>`;
     }
@@ -131,50 +136,50 @@
     const filtroAtivo = filtros.bairro || filtros.cidade || filtros.lideranca_id;
 
     return `
-      <!-- HEADER -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.2rem;flex-wrap:wrap;gap:1rem;">
+      <!-- HEADER compacto -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.6rem;">
         <div>
-          <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
+          <div style="font-family:'Fraunces',serif;font-size:1.3rem;font-weight:700;color:var(--navy);line-height:1.1;">
             Dashboard Analítico
           </div>
-          <div style="font-size:0.82rem;color:var(--muted);">
+          <div style="font-size:0.76rem;color:var(--muted);">
             ${d.meta?.candidato ? `${esc(d.meta.candidato)} · ${esc(d.meta.cargo || '')}` : 'Visão geral'}
             ${filtroAtivo ? ' · <strong style="color:var(--gold);">Filtro ativo</strong>' : ''}
           </div>
         </div>
-        <button class="btn btn-secondary" id="btn-dash-refresh" style="font-size:0.82rem;">🔄 Atualizar</button>
+        <button class="btn btn-secondary" id="btn-dash-refresh" style="font-size:0.78rem;padding:0.35rem 0.7rem;">🔄 Atualizar</button>
       </div>
 
-      <!-- FILTROS -->
-      <div class="panel" style="padding:0.9rem 1.1rem;margin-bottom:1rem;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.6rem;align-items:end;">
+      <!-- FILTROS compactos -->
+      <div class="panel" style="padding:0.7rem 0.9rem;margin-bottom:0.7rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.5rem;align-items:end;">
           <div>
-            <label style="display:block;font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem;">Bairro</label>
-            <select id="filtro-dash-bairro" style="width:100%;">
+            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Bairro</label>
+            <select id="filtro-dash-bairro" style="width:100%;font-size:0.8rem;padding:0.3rem;">
               <option value="">— Todos —</option>
               ${(d.filtros_disponiveis?.bairros || []).map(b => `<option value="${esc(b)}" ${filtros.bairro === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem;">Cidade</label>
-            <select id="filtro-dash-cidade" style="width:100%;">
+            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Cidade</label>
+            <select id="filtro-dash-cidade" style="width:100%;font-size:0.8rem;padding:0.3rem;">
               <option value="">— Todas —</option>
               ${(d.filtros_disponiveis?.cidades || []).map(c => `<option value="${esc(c)}" ${filtros.cidade === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem;">Liderança</label>
-            <select id="filtro-dash-lideranca" style="width:100%;">
+            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Liderança</label>
+            <select id="filtro-dash-lideranca" style="width:100%;font-size:0.8rem;padding:0.3rem;">
               <option value="">— Todas —</option>
               ${(d.filtros_disponiveis?.liderancas || []).map(l => `<option value="${l.id}" ${String(filtros.lideranca_id) === String(l.id) ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
             </select>
           </div>
-          <button class="btn btn-secondary" id="btn-dash-clear-filters" style="font-size:0.78rem;">Limpar filtros</button>
+          <button class="btn btn-secondary" id="btn-dash-clear-filters" style="font-size:0.74rem;padding:0.3rem 0.6rem;">Limpar filtros</button>
         </div>
       </div>
 
-      <!-- KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.7rem;margin-bottom:1.1rem;">
+      <!-- KPIs compactos -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem;margin-bottom:0.7rem;">
         ${kpi('Eleitores', t.total_eleitores, '👥', 'var(--gold)')}
         ${kpi('Lideranças', t.total_liderancas, '⭐', '#8b5cf6')}
         ${kpi('Confirmados', t.confirmados, '✅', '#22c55e')}
@@ -188,61 +193,61 @@
       </div>
 
       ${d.meta?.meta > 0 ? `
-        <div class="panel" style="margin-bottom:1.1rem;padding:1rem 1.2rem;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.4rem;">
-            <div style="font-weight:600;color:var(--navy);">Meta Global de Votos</div>
-            <div style="font-size:0.82rem;color:var(--muted);">${projecao.toLocaleString('pt-BR')} de ${d.meta.meta.toLocaleString('pt-BR')}</div>
+        <div class="panel" style="margin-bottom:0.7rem;padding:0.7rem 0.9rem;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem;">
+            <div style="font-weight:600;color:var(--navy);font-size:0.85rem;">Meta Global de Votos</div>
+            <div style="font-size:0.76rem;color:var(--muted);">${projecao.toLocaleString('pt-BR')} de ${d.meta.meta.toLocaleString('pt-BR')}</div>
           </div>
-          <div style="background:var(--line);border-radius:99px;height:12px;overflow:hidden;">
-            <div style="background:linear-gradient(90deg,#22c55e,#84cc16,var(--gold));height:12px;width:${Math.min(pctMeta||0,100)}%;transition:width 0.6s;border-radius:99px;"></div>
+          <div style="background:var(--line);border-radius:99px;height:10px;overflow:hidden;">
+            <div style="background:linear-gradient(90deg,#22c55e,#84cc16,var(--gold));height:10px;width:${Math.min(pctMeta||0,100)}%;transition:width 0.6s;border-radius:99px;"></div>
           </div>
-          <div style="text-align:right;font-family:'Fraunces',serif;font-size:1.3rem;font-weight:700;color:var(--gold);margin-top:0.3rem;">${pctMeta}%</div>
+          <div style="text-align:right;font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-top:0.2rem;">${pctMeta}%</div>
         </div>` : ''}
 
-      <!-- GRÁFICO PRINCIPAL (com seletor) -->
-      <div class="panel" style="padding:1.1rem 1.2rem;margin-bottom:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <!-- GRÁFICO PRINCIPAL (compacto, com data labels) -->
+      <div class="panel" style="padding:0.8rem 0.9rem;margin-bottom:0.7rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.7rem;flex-wrap:wrap;margin-bottom:0.6rem;">
           <div>
-            <div style="font-weight:600;color:var(--navy);">Gráfico Personalizado</div>
-            <div style="font-size:0.75rem;color:var(--muted);">Escolha o que ver e como ver</div>
+            <div style="font-weight:600;color:var(--navy);font-size:0.9rem;">Gráfico Personalizado</div>
+            <div style="font-size:0.7rem;color:var(--muted);">Escolha o que ver e como ver</div>
           </div>
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-            <select id="dash-metrica" style="font-size:0.82rem;">
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <select id="dash-metrica" style="font-size:0.78rem;padding:0.25rem 0.5rem;">
               ${Object.entries(METRICAS).map(([k, m]) => `<option value="${k}">${m.icone} ${m.label}</option>`).join('')}
             </select>
-            <select id="dash-tipo-grafico" style="font-size:0.82rem;">
+            <select id="dash-tipo-grafico" style="font-size:0.78rem;padding:0.25rem 0.5rem;">
               ${Object.entries(TIPOS_GRAFICO).map(([k, t]) => `<option value="${k}">${t.label}</option>`).join('')}
             </select>
           </div>
         </div>
-        <div style="position:relative;height:380px;">
+        <div style="position:relative;height:300px;">
           <canvas id="dash-grafico-principal"></canvas>
         </div>
       </div>
 
-      <!-- GRÁFICO SECUNDÁRIO (intenção sempre em pizza) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div class="panel" style="padding:1.1rem 1.2rem;">
-          <div style="font-weight:600;color:var(--navy);margin-bottom:1rem;">Intenção de Voto</div>
-          <div style="position:relative;height:240px;">
+      <!-- GRÁFICO SECUNDÁRIO + INSIGHTS lado a lado -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;margin-bottom:0.7rem;">
+        <div class="panel" style="padding:0.8rem 0.9rem;">
+          <div style="font-weight:600;color:var(--navy);margin-bottom:0.5rem;font-size:0.88rem;">Intenção de Voto</div>
+          <div style="position:relative;height:200px;">
             <canvas id="dash-grafico-intencao"></canvas>
           </div>
         </div>
-        <div class="panel" style="padding:1.1rem 1.2rem;">
-          <div style="font-weight:600;color:var(--navy);margin-bottom:1rem;">Insights Automáticos</div>
-          <div id="dash-insights">${renderInsights(d)}</div>
+        <div class="panel" style="padding:0.8rem 0.9rem;">
+          <div style="font-weight:600;color:var(--navy);margin-bottom:0.5rem;font-size:0.88rem;">Insights Automáticos</div>
+          <div id="dash-insights" style="max-height:200px;overflow-y:auto;">${renderInsights(d)}</div>
         </div>
       </div>
 
       <!-- TABELA: Performance de Lideranças -->
-      <div class="panel" style="padding:1.1rem 1.2rem;">
-        <div style="font-weight:600;color:var(--navy);margin-bottom:1rem;">Performance por Liderança</div>
+      <div class="panel" style="padding:0.8rem 0.9rem;">
+        <div style="font-weight:600;color:var(--navy);margin-bottom:0.6rem;font-size:0.88rem;">Performance por Liderança</div>
         <div style="overflow-x:auto;">
-          <table>
+          <table style="width:100%;font-size:0.8rem;">
             <thead><tr>
               <th>Liderança</th>
               <th>Partido</th>
-              <th style="text-align:center;">Cadastrados</th>
+              <th style="text-align:center;">Cadast.</th>
               <th style="text-align:center;">Meta</th>
               <th style="text-align:center;">✅</th>
               <th style="text-align:center;">🟢</th>
@@ -254,7 +259,7 @@
               ${(d.projecao_liderancas || []).map(l => `
                 <tr>
                   <td>${esc(l.nome)}</td>
-                  <td style="font-size:0.82rem;color:var(--muted);">${esc(l.partido || '—')}</td>
+                  <td style="font-size:0.76rem;color:var(--muted);">${esc(l.partido || '—')}</td>
                   <td style="text-align:center;font-weight:600;">${l.cadastrados}</td>
                   <td style="text-align:center;color:var(--muted);">${l.meta || '—'}</td>
                   <td style="text-align:center;color:#22c55e;">${l.confirmados}</td>
@@ -264,11 +269,11 @@
                   <td>
                     ${l.meta > 0 ? `
                       <div style="display:flex;align-items:center;gap:0.4rem;">
-                        <div style="flex:1;background:var(--line);border-radius:99px;height:6px;min-width:80px;">
-                          <div style="background:var(--gold);height:6px;border-radius:99px;width:${Math.min(l.pct_meta_projecao,100)}%;"></div>
+                        <div style="flex:1;background:var(--line);border-radius:99px;height:5px;min-width:60px;">
+                          <div style="background:var(--gold);height:5px;border-radius:99px;width:${Math.min(l.pct_meta_projecao,100)}%;"></div>
                         </div>
-                        <span style="font-size:0.74rem;color:var(--muted);white-space:nowrap;">${l.pct_meta_projecao}%</span>
-                      </div>` : '<span style="color:var(--muted);font-size:0.74rem;">—</span>'}
+                        <span style="font-size:0.7rem;color:var(--muted);white-space:nowrap;">${l.pct_meta_projecao}%</span>
+                      </div>` : '<span style="color:var(--muted);font-size:0.7rem;">—</span>'}
                   </td>
                 </tr>`).join('')}
             </tbody>
@@ -278,35 +283,30 @@
 
     function kpi(label, value, icon, cor) {
       return `
-        <div class="panel" style="padding:0.85rem;border-left:3px solid ${cor};">
+        <div class="panel" style="padding:0.55rem 0.7rem;border-left:3px solid ${cor};">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">${label}</div>
-            <div style="font-size:1rem;opacity:0.5;">${icon}</div>
+            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;">${label}</div>
+            <div style="font-size:0.85rem;opacity:0.5;">${icon}</div>
           </div>
-          <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);margin-top:0.25rem;">
+          <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:700;color:var(--navy);margin-top:0.15rem;line-height:1.1;">
             ${(value || 0).toLocaleString('pt-BR')}
           </div>
         </div>`;
     }
   }
 
-  /* ════════════════════════════════════════════════
-     INSIGHTS AUTOMÁTICOS — análise sênior dos dados
-  ════════════════════════════════════════════════ */
   function renderInsights(d) {
     const t = d.totais;
     const insights = [];
 
-    // 1. Cobertura
     const taxaConfirmacao = t.total_eleitores > 0
       ? Math.round((t.confirmados / t.total_eleitores) * 100) : 0;
     if (taxaConfirmacao < 20) {
-      insights.push({ icon: '⚠️', cor: '#f59e0b', txt: `Taxa de confirmados baixa (${taxaConfirmacao}%). Sugestão: campanha de validação das intenções.` });
+      insights.push({ icon: '⚠️', cor: '#f59e0b', txt: `Taxa de confirmados baixa (${taxaConfirmacao}%). Sugestão: campanha de validação.` });
     } else if (taxaConfirmacao > 60) {
       insights.push({ icon: '✅', cor: '#22c55e', txt: `Taxa de confirmados sólida (${taxaConfirmacao}%). Base bem qualificada!` });
     }
 
-    // 2. Ritmo de cadastro
     if (t.novos_semana > 0) {
       const projecaoMes = Math.round(t.novos_semana * 4.3);
       insights.push({ icon: '📈', cor: '#3b82f6', txt: `Cadastrando ${t.novos_semana}/semana. Projeção: ${projecaoMes} novos em 30 dias.` });
@@ -314,50 +314,41 @@
       insights.push({ icon: '🐢', cor: '#9ca3af', txt: 'Nenhum cadastro novo nos últimos 30 dias.' });
     }
 
-    // 3. Concentração geográfica
     if (d.top_bairros?.length) {
       const topBairro = d.top_bairros[0];
       const pctTop = t.total_eleitores > 0 ? Math.round((topBairro.total / t.total_eleitores) * 100) : 0;
       if (pctTop > 30) {
-        insights.push({ icon: '📍', cor: '#8b5cf6', txt: `${pctTop}% da base está em <strong>${esc(topBairro.bairro)}</strong>. Considere expandir para outros bairros.` });
-      } else if (d.top_bairros.length > 5) {
-        insights.push({ icon: '🌍', cor: '#06b6d4', txt: `Base distribuída em ${t.total_bairros} bairros. Boa cobertura geográfica.` });
+        insights.push({ icon: '📍', cor: '#8b5cf6', txt: `${pctTop}% da base em <strong>${esc(topBairro.bairro)}</strong>. Considere expandir.` });
       }
     }
 
-    // 4. Lideranças performando
     if (d.projecao_liderancas?.length) {
       const semCadastros = d.projecao_liderancas.filter(l => l.cadastrados === 0);
       if (semCadastros.length > 0) {
-        insights.push({ icon: '🚨', cor: '#dc2626', txt: `${semCadastros.length} liderança${semCadastros.length > 1 ? 's' : ''} sem cadastros. Reunião sugerida.` });
-      }
-      const acimaMeta = d.projecao_liderancas.filter(l => l.meta > 0 && l.pct_meta_projecao >= 100);
-      if (acimaMeta.length > 0) {
-        insights.push({ icon: '🏆', cor: '#22c55e', txt: `${acimaMeta.length} liderança${acimaMeta.length > 1 ? 's' : ''} já atingi${acimaMeta.length > 1 ? 'ram' : 'u'} a meta!` });
+        insights.push({ icon: '🚨', cor: '#dc2626', txt: `${semCadastros.length} liderança${semCadastros.length > 1 ? 's' : ''} sem cadastros.` });
       }
     }
 
-    // 5. Risco
     if (t.em_risco > 0 && t.total_eleitores > 0) {
       const pctRisco = Math.round((t.em_risco / t.total_eleitores) * 100);
       if (pctRisco > 10) {
-        insights.push({ icon: '🟠', cor: '#f97316', txt: `${pctRisco}% da base está em risco. Priorize contato com esses eleitores.` });
+        insights.push({ icon: '🟠', cor: '#f97316', txt: `${pctRisco}% da base em risco. Priorize contato.` });
       }
     }
 
     if (!insights.length) {
-      return '<div style="padding:1rem;color:var(--muted);font-size:0.85rem;text-align:center;">Cadastre mais eleitores para gerar insights.</div>';
+      return '<div style="padding:1rem;color:var(--muted);font-size:0.8rem;text-align:center;">Cadastre mais eleitores para gerar insights.</div>';
     }
 
     return insights.slice(0, 5).map(i => `
-      <div style="display:flex;gap:0.6rem;padding:0.7rem 0.8rem;background:var(--cream);border-radius:5px;margin-bottom:0.4rem;border-left:3px solid ${i.cor};">
-        <div style="font-size:1.1rem;line-height:1;">${i.icon}</div>
-        <div style="font-size:0.82rem;line-height:1.4;color:#374151;">${i.txt}</div>
+      <div style="display:flex;gap:0.5rem;padding:0.5rem 0.6rem;background:var(--cream);border-radius:4px;margin-bottom:0.3rem;border-left:3px solid ${i.cor};">
+        <div style="font-size:0.95rem;line-height:1;">${i.icon}</div>
+        <div style="font-size:0.76rem;line-height:1.35;color:#374151;">${i.txt}</div>
       </div>`).join('');
   }
 
   /* ════════════════════════════════════════════════
-     RENDERIZAÇÃO DOS GRÁFICOS (Chart.js)
+     GRÁFICO PRINCIPAL — com data labels!
   ════════════════════════════════════════════════ */
   function renderGraficoPrincipal() {
     const metricaKey = document.getElementById('dash-metrica')?.value || 'eleitores_bairro';
@@ -369,17 +360,55 @@
     const canvas = document.getElementById('dash-grafico-principal');
     if (!canvas) return;
 
-    // Destrói o gráfico anterior
     if (graficos.principal) { graficos.principal.destroy(); graficos.principal = null; }
     if (!window.Chart) {
-      canvas.parentElement.innerHTML = '<div style="padding:2rem;color:var(--danger);text-align:center;">Chart.js não carregou. Recarregue a página.</div>';
+      canvas.parentElement.innerHTML = '<div style="padding:1.5rem;color:var(--danger);text-align:center;">Chart.js não carregou. Recarregue a página.</div>';
       return;
+    }
+
+    // Registra o plugin de datalabels se disponível
+    const hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
+    if (hasDataLabels) {
+      try { Chart.register(window.ChartDataLabels); } catch {}
     }
 
     const tipo = TIPOS_GRAFICO[tipoKey];
     const cores = dados.colors || gerarCores(dados.labels.length);
     const isHorizontal = tipoKey === 'bar-h';
     const isSlice = tipoKey === 'pie' || tipoKey === 'doughnut';
+    const suffix = dados.suffix || '';
+
+    // Configuração do plugin de data labels
+    const datalabels = hasDataLabels ? {
+      color: isSlice ? '#fff' : '#1e2a4a',
+      font: {
+        weight: 'bold',
+        size: 11,
+      },
+      anchor: isSlice ? 'center' : (isHorizontal ? 'end' : 'end'),
+      align: isSlice ? 'center' : (isHorizontal ? 'right' : 'top'),
+      offset: isSlice ? 0 : 4,
+      formatter: (value, ctx) => {
+        if (isSlice) {
+          // Em pizzas, mostra "Label: Valor"
+          const label = ctx.chart.data.labels[ctx.dataIndex];
+          // Em fatias muito pequenas (<3%), oculta para não poluir
+          const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+          if (value / total < 0.03) return '';
+          return `${label}\n${value}${suffix}`;
+        }
+        // Em barras/linhas, mostra só o valor
+        return `${value}${suffix}`;
+      },
+      textShadowBlur: isSlice ? 4 : 0,
+      textShadowColor: isSlice ? 'rgba(0,0,0,0.5)' : 'transparent',
+      // Em barras horizontais, posiciona DENTRO da barra se valor grande
+      backgroundColor: isHorizontal ? function(ctx) {
+        return ctx.dataset.backgroundColor;
+      } : null,
+      borderRadius: isHorizontal ? 4 : 0,
+      padding: isHorizontal ? { left: 4, right: 4, top: 1, bottom: 1 } : 0,
+    } : { display: false };
 
     graficos.principal = new Chart(canvas.getContext('2d'), {
       type: tipo.chartType,
@@ -388,7 +417,7 @@
         datasets: [{
           label: metrica.label,
           data: dados.values,
-          backgroundColor: isSlice ? cores : cores[0] || '#c9a961',
+          backgroundColor: isSlice ? cores : (isHorizontal ? cores : (cores[0] || '#c9a961')),
           borderColor: isSlice ? '#fff' : (cores[0] || '#c9a961'),
           borderWidth: isSlice ? 2 : 1,
           tension: 0.3,
@@ -399,24 +428,58 @@
         responsive: true,
         maintainAspectRatio: false,
         indexAxis: isHorizontal ? 'y' : 'x',
+        layout: { padding: { top: 10, right: 30, bottom: 5, left: 5 } },
         plugins: {
           legend: {
             display: isSlice,
             position: 'right',
-            labels: { font: { size: 12 } }
+            labels: {
+              font: { size: 11 },
+              generateLabels: isSlice ? function(chart) {
+                const data = chart.data;
+                if (data.labels.length && data.datasets.length) {
+                  const ds = data.datasets[0];
+                  return data.labels.map((label, i) => ({
+                    text: `${label}: ${ds.data[i]}${suffix}`,
+                    fillStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
+                    strokeStyle: '#fff',
+                    lineWidth: 1,
+                    hidden: false,
+                    index: i,
+                  }));
+                }
+                return [];
+              } : undefined,
+            }
           },
           tooltip: {
             callbacks: {
               label: (ctx) => {
                 const v = ctx.parsed[isHorizontal ? 'x' : (isSlice ? null : 'y')] ?? ctx.parsed;
-                return `${ctx.label}: ${v}${dados.suffix || ''}`;
+                return `${ctx.label}: ${v}${suffix}`;
               }
             }
-          }
+          },
+          datalabels: datalabels,
         },
         scales: isSlice ? {} : {
-          x: { ticks: { font: { size: 11 } } },
-          y: { ticks: { font: { size: 11 } }, beginAtZero: true },
+          x: {
+            ticks: { font: { size: 10 } },
+            beginAtZero: isHorizontal,
+          },
+          y: {
+            ticks: {
+              font: { size: 10 },
+              autoSkip: false,
+              // Em horizontal, formata o label "Bairro (N)"
+              callback: isHorizontal ? function(value, index) {
+                const label = this.getLabelForValue(value);
+                const v = dados.values[index];
+                return `${label} (${v})`;
+              } : undefined,
+            },
+            beginAtZero: !isHorizontal,
+          },
         },
       },
     });
@@ -427,6 +490,8 @@
     if (!canvas || !dadosCache) return;
     if (graficos.intencao) { graficos.intencao.destroy(); graficos.intencao = null; }
     if (!window.Chart) return;
+
+    const hasDataLabels = typeof window.ChartDataLabels !== 'undefined';
 
     const dados = METRICAS.intencao_voto.getData(dadosCache);
     graficos.intencao = new Chart(canvas.getContext('2d'), {
@@ -446,8 +511,37 @@
         plugins: {
           legend: {
             position: 'right',
-            labels: { font: { size: 11 }, padding: 8 }
-          }
+            labels: {
+              font: { size: 10 },
+              padding: 6,
+              generateLabels: function(chart) {
+                const data = chart.data;
+                if (data.labels.length && data.datasets.length) {
+                  const ds = data.datasets[0];
+                  return data.labels.map((label, i) => ({
+                    text: `${label}: ${ds.data[i]}`,
+                    fillStyle: Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor,
+                    strokeStyle: '#fff',
+                    lineWidth: 1,
+                    hidden: false,
+                    index: i,
+                  }));
+                }
+                return [];
+              },
+            }
+          },
+          datalabels: hasDataLabels ? {
+            color: '#fff',
+            font: { weight: 'bold', size: 11 },
+            formatter: (value, ctx) => {
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              if (total === 0 || value / total < 0.05) return '';
+              return value;
+            },
+            textShadowBlur: 4,
+            textShadowColor: 'rgba(0,0,0,0.5)',
+          } : { display: false },
         }
       }
     });
@@ -460,9 +554,6 @@
     return result;
   }
 
-  /* ════════════════════════════════════════════════
-     BINDS
-  ════════════════════════════════════════════════ */
   function bind() {
     document.getElementById('btn-dash-refresh')?.addEventListener('click', render);
     document.getElementById('btn-dash-clear-filters')?.addEventListener('click', () => {
@@ -479,7 +570,6 @@
       filtros.lideranca_id = ev.target.value; render();
     });
     document.getElementById('dash-metrica')?.addEventListener('change', () => {
-      // Ao mudar a métrica, ajusta o tipo de gráfico para o padrão
       const metricaKey = document.getElementById('dash-metrica').value;
       const tipoSelect = document.getElementById('dash-tipo-grafico');
       if (tipoSelect && METRICAS[metricaKey]) {
@@ -492,9 +582,11 @@
 
   function esc(s) {
     return String(s ?? '').replace(/[<>&"']/g, c =>
-      ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c]));
+      ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   window.GEDashboard = { openDashboard };
+
+  console.log('[DASHBOARD v4] Módulo carregado.');
 
 })();
