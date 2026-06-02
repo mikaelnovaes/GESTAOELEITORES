@@ -9,20 +9,14 @@
 .navbar-top { display: none; }
 
 /* Estado 2: DEPOIS do login */
-.app-wrapper.show { display: block !important; }
+.app-wrapper.show { display: flex !important; flex-direction: column; }
 .app-wrapper.show > aside { display: none !important; }
-.app-wrapper.show > main {
-  margin-left: 0 !important;
-  padding-top: 64px !important;
-  width: 100%;
-  box-sizing: border-box;
-}
+
 .app-wrapper.show .navbar-top { display: flex; }
 
 /* ─────────── NAVBAR ─────────── */
 .navbar-top {
-  position: fixed;
-  top: 0; left: 0; right: 0;
+  position: relative;
   height: 52px;
   background: var(--navy, #1e2a4a);
   color: #fff;
@@ -200,7 +194,7 @@
 }
 
 /* Compensar nova altura 52px */
-.app-wrapper.show > main { padding-top: 64px !important; }
+
 
 /* ─────────── MOBILE ─────────── */
 .navbar-toggle {
@@ -216,7 +210,7 @@
 
 @media (max-width: 900px) {
   .navbar-top { height: 48px; }
-  .app-wrapper.show > main { padding-top: 56px !important; }
+  
   .navbar-toggle { display: block; }
   .navbar-brand h2 { display: none; }
   .navbar-user-info { display: none; }
