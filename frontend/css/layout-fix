@@ -1,81 +1,119 @@
 /**
- * frontend/css/layout-fix.css
- * Correção de scroll e layout para zoom 100%
+ * frontend/css/layout-fix.css (v2)
  *
- * PROBLEMA: O <main> crescia junto com o conteúdo, ignorando a altura do wrapper.
- * Em telas pequenas/zoom alto, o conteúdo do dashboard vazava pra baixo sem scroll.
+ * Carregado POR ÚLTIMO no <head> para vencer especificidade.
  *
- * SOLUÇÃO: Forçar altura do main em 100% do viewport (- navbar) e overflow-y auto.
+ * PROBLEMA RESOLVIDO:
+ *   menu-topo.css linha 12 tem ".app-wrapper.show { display: block !important; }"
+ *   isso quebra o flex do styles.css, fazendo o <main> crescer com o conteúdo
+ *   ao invés de ficar com altura fixa e scroll próprio.
+ *
+ * SOLUÇÃO:
+ *   Forçar display:flex no app-wrapper + flex:1 + min-height:0 no main.
+ *   O min-height:0 é CRÍTICO em flex-items que precisam de overflow.
  */
 
-/* ── App wrapper ocupa 100% da viewport ── */
+/* ════════════════════════════════════════════════════════════
+   1. HTML/BODY: zerados, sem scroll próprio
+   ════════════════════════════════════════════════════════════ */
 html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden; /* documento não rola — quem rola é o main */
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
 }
 
+/* ════════════════════════════════════════════════════════════
+   2. APP-WRAPPER: SEMPRE FLEX quando visível
+   ════════════════════════════════════════════════════════════ */
 .app-wrapper.show {
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* ── Navbar tem altura fixa (52px desktop, 48px mobile) ── */
+/* aside oculto (menu lateral antigo) */
+.app-wrapper.show > aside {
+  display: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   3. NAVBAR: altura fixa, não cresce
+   ════════════════════════════════════════════════════════════ */
 .app-wrapper.show > .navbar-top {
-  flex-shrink: 0;
+  position: relative !important;     /* tira do fixed */
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
 }
 
-/* ── Main ocupa o restante e rola sozinho ── */
+/* ════════════════════════════════════════════════════════════
+   4. MAIN: ocupa o RESTANTE, com scroll próprio
+   ════════════════════════════════════════════════════════════ */
 .app-wrapper.show > main,
 .app-wrapper.show > #main-content {
-  flex: 1;
-  min-height: 0; /* CRÍTICO: permite que o flex-item encolha */
+  flex: 1 1 auto !important;
+  min-height: 0 !important;          /* CRÍTICO! permite encolher dentro do flex */
   overflow-y: auto !important;
-  overflow-x: hidden;
-  padding-top: 1rem !important; /* navbar já foi descontada do flex */
-  padding-bottom: 2rem !important;
-  /* compensar navbar fixed só se ela ainda for position:fixed */
+  overflow-x: hidden !important;
+  padding-top: 1rem !important;       /* navbar não é mais fixed */
+  padding-bottom: 1.5rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
-/* Se a navbar for position:fixed (CSS antigo), restaura padding-top */
-@supports not (display: flex) {
-  .app-wrapper.show > main {
-    padding-top: 64px !important;
-  }
-}
-
-/* ── Scrollbar discreta no main ── */
-.app-wrapper.show > main::-webkit-scrollbar {
-  width: 10px;
-}
-.app-wrapper.show > main::-webkit-scrollbar-track {
-  background: transparent;
-}
-.app-wrapper.show > main::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.15);
-  border-radius: 10px;
-}
-.app-wrapper.show > main::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.25);
-}
-
-/* ── Cada view ocupa espaço normal dentro do main ── */
-.view {
-  padding: 0 1rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-/* ── Mobile ── */
-@media (max-width: 900px) {
-  .view { padding: 0 0.6rem; }
-}
-
-/* ── Banner de acting tenant não atrapalha o flex ── */
+/* ════════════════════════════════════════════════════════════
+   5. BANNER DE ACTING TENANT — não atrapalha o flex
+   ════════════════════════════════════════════════════════════ */
 #acting-banner {
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   6. SCROLLBAR customizada (visível mas discreta)
+   ════════════════════════════════════════════════════════════ */
+.app-wrapper.show > main::-webkit-scrollbar,
+.app-wrapper.show > #main-content::-webkit-scrollbar {
+  width: 12px !important;
+}
+.app-wrapper.show > main::-webkit-scrollbar-track,
+.app-wrapper.show > #main-content::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb,
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1 !important;
+  border-radius: 10px !important;
+  border: 2px solid #f1f1f1 !important;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb:hover,
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8 !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   7. VIEW dentro do main: respira mas não vaza
+   ════════════════════════════════════════════════════════════ */
+.view {
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   8. MOBILE
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .app-wrapper.show > main,
+  .app-wrapper.show > #main-content {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
 }
