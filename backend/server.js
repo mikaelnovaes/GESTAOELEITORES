@@ -163,6 +163,7 @@ app.use('/api/mapa',       authMiddleware, mapaRoutes);
 app.use('/api/projecao',  authMiddleware, projecaoRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/etiquetas', authMiddleware, etiquetasRoutes);
+app.use('/api/bairros',   authMiddleware, bairrosRoutes);
 app.use('/api/disparo',   authMiddleware, disparoRoutes);
 app.use('/api/agenda', (req, res, next) => {
   // Permite /publico/:token sem autenticação
