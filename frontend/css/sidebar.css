@@ -1,0 +1,639 @@
+/* ════════════════════════════════════════════════════════════
+   SIDEBAR RETRÁTIL — Gestão de Eleitores
+   Fonte: Geist (Vercel) — moderna, técnica, ótima legibilidade
+   ════════════════════════════════════════════════════════════ */
+
+/* Garante carregamento da Geist no <head> também via link */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
+
+/* ── VARIÁVEIS ────────────────────────────────────────────── */
+:root {
+  --sb-width-collapsed: 64px;
+  --sb-width-expanded: 240px;
+  --sb-bg: #1e2a4a;
+  --sb-bg-hover: rgba(255, 255, 255, 0.06);
+  --sb-bg-active: rgba(201, 169, 97, 0.15);
+  --sb-text: rgba(255, 255, 255, 0.85);
+  --sb-text-muted: rgba(255, 255, 255, 0.55);
+  --sb-text-dim: rgba(255, 255, 255, 0.4);
+  --sb-gold: #c9a961;
+  --sb-border: rgba(255, 255, 255, 0.08);
+  --sb-transition: 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── ESCONDE TUDO ATÉ O LOGIN ─────────────────────────────── */
+.app-sidebar {
+  display: none;
+}
+.app-wrapper.show .app-sidebar {
+  display: flex;
+}
+
+/* Esconde a navbar antiga + aside antigo */
+.app-wrapper.show > .navbar-top,
+.app-wrapper.show > aside {
+  display: none !important;
+}
+
+/* ── LAYOUT GERAL: html/body/wrapper ─────────────────────── */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-wrapper.show {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 100vh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+.app-wrapper.show > main,
+.app-wrapper.show > #main-content {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 1rem 1.25rem !important;
+  margin-left: 0 !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+}
+
+/* Scrollbar customizada no main */
+.app-wrapper.show > main::-webkit-scrollbar,
+.app-wrapper.show > #main-content::-webkit-scrollbar {
+  width: 10px;
+}
+.app-wrapper.show > main::-webkit-scrollbar-track,
+.app-wrapper.show > #main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb,
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb:hover,
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ════════════════════════════════════════════════════════════
+   SIDEBAR
+   ════════════════════════════════════════════════════════════ */
+.app-sidebar {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--sb-width-collapsed);
+  height: 100vh;
+  background: var(--sb-bg);
+  color: var(--sb-text);
+  transition: width var(--sb-transition);
+  z-index: 100;
+  position: relative;
+}
+
+.app-sidebar.expanded {
+  width: var(--sb-width-expanded);
+}
+
+/* ── HEADER (logo + botão recolher) ──────────────────────── */
+.sb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  min-height: 60px;
+  border-bottom: 1px solid var(--sb-border);
+  overflow: hidden;
+}
+
+.sb-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sb-logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--sb-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sb-bg);
+  flex-shrink: 0;
+}
+
+.sb-logo-text {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: #fff;
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 180ms;
+  transition-delay: 0ms;
+}
+.app-sidebar.expanded .sb-logo-text {
+  opacity: 1;
+  transition-delay: 150ms;
+}
+
+.sb-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 120ms;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.sb-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* No estado recolhido, o botão fica abaixo do logo (centralizado) */
+.app-sidebar:not(.expanded) .sb-header {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px;
+}
+.app-sidebar:not(.expanded) .sb-logo-text {
+  display: none;
+}
+
+/* ── BUSCA RÁPIDA (só no expandido) ──────────────────────── */
+.sb-search {
+  padding: 10px 12px 4px;
+  display: none;
+}
+.app-sidebar.expanded .sb-search {
+  display: block;
+}
+.sb-search input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 120ms;
+  box-sizing: border-box;
+}
+.sb-search input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.sb-search input:focus {
+  border-color: var(--sb-gold);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── NAV ITEMS ───────────────────────────────────────────── */
+.sb-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.sb-nav::-webkit-scrollbar { width: 6px; }
+.sb-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+
+.sb-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--sb-text-dim);
+  padding: 12px 16px 6px;
+  text-transform: uppercase;
+  display: none;
+}
+.app-sidebar.expanded .sb-section-label {
+  display: block;
+}
+
+.sb-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sb-item-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--sb-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  padding: 9px 16px;
+  margin: 1px 8px;
+  border-radius: 6px;
+  transition: background 120ms, color 120ms;
+  white-space: nowrap;
+  overflow: hidden;
+  min-height: 36px;
+  box-sizing: border-box;
+  letter-spacing: -0.005em;
+}
+
+.sb-item-link:hover {
+  background: var(--sb-bg-hover);
+  color: #fff;
+}
+
+.sb-item.active > .sb-item-link {
+  background: var(--sb-bg-active);
+  color: var(--sb-gold);
+}
+
+/* Barra dourada à esquerda quando ativo */
+.sb-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--sb-gold);
+  border-radius: 0 2px 2px 0;
+}
+
+.sb-item-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  line-height: 1;
+}
+
+.sb-item-text {
+  flex: 1;
+  opacity: 1;
+  transition: opacity 180ms;
+}
+
+.sb-item-chevron {
+  font-size: 9px;
+  opacity: 0.5;
+  transition: transform 200ms;
+  flex-shrink: 0;
+}
+.sb-item.open > .sb-item-link .sb-item-chevron {
+  transform: rotate(180deg);
+}
+
+/* Badge (contador 41) */
+.sb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sb-badge.muted {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* No estado recolhido: esconde texto, badge vira pontinho */
+.app-sidebar:not(.expanded) .sb-item-link {
+  padding: 11px 0;
+  margin: 1px 10px;
+  justify-content: center;
+}
+.app-sidebar:not(.expanded) .sb-item-text,
+.app-sidebar:not(.expanded) .sb-item-chevron {
+  display: none;
+}
+.app-sidebar:not(.expanded) .sb-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  min-width: 14px;
+  height: 14px;
+  font-size: 8px;
+  padding: 0 4px;
+  border: 1.5px solid var(--sb-bg);
+}
+
+/* ── SUBMENUS (DROPDOWN flutuante no recolhido / inline no expandido) ── */
+.sb-submenu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 220ms ease;
+}
+.app-sidebar.expanded .sb-item.open > .sb-submenu {
+  max-height: 400px;
+}
+
+.sb-submenu .sb-subitem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 16px 7px 48px;
+  margin: 0 8px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: var(--sb-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  width: calc(100% - 16px);
+  text-align: left;
+  transition: background 120ms, color 120ms;
+  letter-spacing: -0.003em;
+}
+.sb-submenu .sb-subitem:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+.sb-submenu .sb-subitem.active {
+  color: var(--sb-gold);
+  background: rgba(201, 169, 97, 0.08);
+}
+
+/* Submenu flutuante no recolhido */
+.app-sidebar:not(.expanded) .sb-submenu {
+  position: fixed;
+  left: calc(var(--sb-width-collapsed) + 4px);
+  background: var(--sb-bg);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 210px;
+  max-height: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: opacity 150ms, max-height 0ms 150ms;
+}
+.app-sidebar:not(.expanded) .sb-item.open > .sb-submenu {
+  max-height: 400px;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 150ms, max-height 0ms;
+}
+.app-sidebar:not(.expanded) .sb-submenu .sb-subitem {
+  padding: 8px 12px;
+  margin: 0;
+  width: 100%;
+  border-radius: 4px;
+}
+
+/* ── TOOLTIP (recolhido, ao hover) ───────────────────────── */
+.sb-tooltip {
+  position: fixed;
+  background: #0f172a;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-family: 'Geist', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: opacity 120ms;
+  transform: translateY(-50%);
+}
+.sb-tooltip.show {
+  opacity: 1;
+  transition-delay: 250ms;
+}
+.sb-tooltip-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+  margin-top: 2px;
+}
+.sb-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 4px 4px 4px 0;
+  border-style: solid;
+  border-color: transparent #0f172a transparent transparent;
+}
+
+/* ── FOOTER (avatar + sair) ──────────────────────────────── */
+.sb-footer {
+  border-top: 1px solid var(--sb-border);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.sb-avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sb-gold);
+  color: var(--sb-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sb-avatar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  background: #22c55e;
+  border-radius: 50%;
+  border: 2px solid var(--sb-bg);
+}
+
+.sb-user-info {
+  flex: 1;
+  min-width: 0;
+  display: none;
+}
+.app-sidebar.expanded .sb-user-info {
+  display: block;
+}
+.sb-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-user-role {
+  font-size: 10px;
+  color: var(--sb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sb-logout {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 120ms;
+  display: none;
+}
+.sb-logout:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.app-sidebar.expanded .sb-logout {
+  display: block;
+}
+
+/* No recolhido, footer só mostra o avatar (centralizado) */
+.app-sidebar:not(.expanded) .sb-footer {
+  justify-content: center;
+  padding: 12px 8px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE — sidebar vira drawer
+   ════════════════════════════════════════════════════════════ */
+.sb-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  width: 36px;
+  height: 36px;
+  background: var(--sb-bg);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sb-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    z-index: 110;
+    width: var(--sb-width-expanded) !important;
+    transition: left var(--sb-transition);
+  }
+  .app-sidebar.expanded {
+    left: 0;
+  }
+  .app-sidebar.expanded ~ .sb-overlay {
+    display: block;
+  }
+  .app-wrapper.show .sb-mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app-wrapper.show > main,
+  .app-wrapper.show > #main-content {
+    padding-top: 60px !important;
+  }
+  /* No mobile, força o estado expandido sempre (a sidebar abre/fecha por translate) */
+  .app-sidebar .sb-item-text,
+  .app-sidebar .sb-item-chevron,
+  .app-sidebar .sb-logo-text,
+  .app-sidebar .sb-search,
+  .app-sidebar .sb-section-label,
+  .app-sidebar .sb-user-info,
+  .app-sidebar .sb-logout {
+    display: block;
+  }
+  .app-sidebar .sb-item-link {
+    justify-content: flex-start;
+    padding: 9px 16px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   GLOBAL — fonte Geist em tudo
+   ════════════════════════════════════════════════════════════ */
+.app-wrapper.show,
+.app-wrapper.show input,
+.app-wrapper.show button,
+.app-wrapper.show select,
+.app-wrapper.show textarea {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+}
