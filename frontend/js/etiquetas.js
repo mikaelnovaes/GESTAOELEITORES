@@ -1,329 +1,471 @@
 /**
- * frontend/js/agenda.js (v2)
- * Agenda do Candidato — calendário + link mestre por tenant
+ * frontend/js/etiquetas.js  (v3 — com pré-visualização interna + histórico PDF)
+ * Fluxo: configura → PRÉ-VISUALIZA dentro do sistema → confirma → imprime
  */
 
 'use strict';
 
 (function () {
 
-  const TIPO_CONFIG = {
-    evento:      { label: 'Evento',      cor: '#c9a961', icon: '🎯' },
-    reuniao:     { label: 'Reunião',     cor: '#3b82f6', icon: '🤝' },
-    visita:      { label: 'Visita',      cor: '#8b5cf6', icon: '🚗' },
-    comicio:     { label: 'Comício',     cor: '#ef4444', icon: '📢' },
-    entrevista:  { label: 'Entrevista',  cor: '#06b6d4', icon: '🎙️' },
-    outro:       { label: 'Outro',       cor: '#6b7280', icon: '📌' },
+  const TAMANHOS = {
+    'carta': {
+      nome: 'Carta (33,9 × 99,0 mm)',
+      desc: '14 etiquetas por folha A4 — Pimaco 6080',
+      larguraMM: 99, alturaMM: 33.9,
+      colunas: 2, linhas: 7,
+      margemTopoMM: 13, margemEsqMM: 4.7,
+      espacoHMM: 2.5, espacoVMM: 0,
+      fonte: 9,
+    },
+    'media': {
+      nome: 'Média (50,8 × 101,6 mm)',
+      desc: '10 etiquetas por folha A4 — Pimaco 6082',
+      larguraMM: 101.6, alturaMM: 50.8,
+      colunas: 2, linhas: 5,
+      margemTopoMM: 13, margemEsqMM: 4.7,
+      espacoHMM: 2.5, espacoVMM: 0,
+      fonte: 11,
+    },
+    'pequena': {
+      nome: 'Pequena (100 × 25 mm)',
+      desc: '22 etiquetas por folha A4',
+      larguraMM: 100, alturaMM: 25,
+      colunas: 2, linhas: 11,
+      margemTopoMM: 10, margemEsqMM: 5,
+      espacoHMM: 0, espacoVMM: 0,
+      fonte: 8,
+    },
   };
 
-  let mesAtual = new Date();
-  mesAtual.setDate(1);
-  let eventosCache = [];
-  let linkMestre = null;
+  // Estado da geração atual
+  let estadoAtual = {
+    eleitores: [],
+    cfg: null,
+    tamanho: null,
+    escopo: 'todos',
+    filtroBairro: '',
+    filtroCidade: '',
+  };
 
-  async function openAgenda() {
-    if (typeof window.switchView === 'function') window.switchView('agenda');
-    await Promise.all([carregarEventos(), carregarLinkMestre()]);
-    renderHeader();
-    renderCalendario();
-    renderListaEventos();
-  }
-
-  async function carregarLinkMestre() {
-    try {
-      const r = await window.API.get('/agenda/link-publico');
-      linkMestre = r.token;
-    } catch {
-      linkMestre = null;
-    }
-  }
-
-  async function carregarEventos() {
-    try {
-      const inicio = new Date(mesAtual);
-      inicio.setDate(1);
-      inicio.setHours(0,0,0,0);
-      const fim = new Date(mesAtual);
-      fim.setMonth(fim.getMonth() + 1);
-      fim.setDate(0);
-      fim.setHours(23,59,59,999);
-
-      eventosCache = await window.API.get(
-        `/agenda?de=${encodeURIComponent(inicio.toISOString())}&ate=${encodeURIComponent(fim.toISOString())}`
-      );
-    } catch (err) {
-      window.showToast('Erro ao carregar agenda: ' + err.message, 'error');
-      eventosCache = [];
-    }
-  }
-
-  /* ══════════════════════════════════════════════════════
-     HEADER com botão de link público
-  ══════════════════════════════════════════════════════ */
-  function renderHeader() {
-    const header = document.getElementById('agenda-header-actions');
-    if (!header) return;
-
-    const linkUrl = linkMestre
-      ? `${window.location.origin}/agenda-publica.html?token=${linkMestre}`
-      : null;
-
-    header.innerHTML = `
-      ${linkUrl ? `
-        <button class="btn btn-secondary" id="btn-agenda-copiar-link" title="Copiar link público da agenda" style="font-size:0.82rem;">
-          🔗 Copiar link público
-        </button>
-        <button class="btn btn-secondary" id="btn-agenda-regenerar-link" title="Gera um novo link (invalida o anterior)" style="font-size:0.82rem;">
-          🔄 Novo link
-        </button>` : ''}
-      <button class="btn btn-primary" id="btn-novo-evento" style="font-size:0.82rem;">+ Novo Evento</button>
-    `;
-
-    document.getElementById('btn-agenda-copiar-link')?.addEventListener('click', () => {
-      if (!linkUrl) return;
-      navigator.clipboard?.writeText(linkUrl)
-        .then(() => window.showToast('Link público copiado! Compartilhe com sua equipe.', 'success'))
-        .catch(() => prompt('Copie o link manualmente:', linkUrl));
-    });
-
-    document.getElementById('btn-agenda-regenerar-link')?.addEventListener('click', async () => {
-      if (!confirm('Gerar novo link público?\n\nO link antigo deixará de funcionar e quem já tinha precisará receber o novo.')) return;
-      try {
-        const r = await window.API.post('/agenda/link-publico/regenerar', {});
-        linkMestre = r.token;
-        renderHeader();
-        window.showToast('Novo link gerado!', 'success');
-      } catch (err) {
-        window.showToast('Erro: ' + err.message, 'error');
-      }
-    });
-
-    document.getElementById('btn-novo-evento')?.addEventListener('click', () => abrirFormEvento());
-  }
-
-  /* ══════════════════════════════════════════════════════
-     CALENDÁRIO
-  ══════════════════════════════════════════════════════ */
-  function renderCalendario() {
-    const container = document.getElementById('agenda-calendario');
-    if (!container) return;
-    const ano = mesAtual.getFullYear();
-    const mes = mesAtual.getMonth();
-    const nomeMes = mesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-
-    const primeirodia = new Date(ano, mes, 1).getDay();
-    const ultimoDia   = new Date(ano, mes + 1, 0).getDate();
-    const hoje = new Date();
-
-    const eventosPorDia = {};
-    eventosCache.forEach(ev => {
-      const d = new Date(ev.data_inicio).getDate();
-      if (!eventosPorDia[d]) eventosPorDia[d] = [];
-      eventosPorDia[d].push(ev);
-    });
-
-    let cells = '';
-    for (let i = 0; i < primeirodia; i++) cells += '<div class="agenda-cell vazio"></div>';
-    for (let d = 1; d <= ultimoDia; d++) {
-      const evs = eventosPorDia[d] || [];
-      const ehHoje = hoje.getFullYear() === ano && hoje.getMonth() === mes && hoje.getDate() === d;
-      const pontinhos = evs.slice(0, 3).map(ev => {
-        const cfg = TIPO_CONFIG[ev.tipo] || TIPO_CONFIG.outro;
-        return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${cfg.cor};margin:1px;"></span>`;
-      }).join('');
-      cells += `
-        <div class="agenda-cell ${ehHoje ? 'hoje' : ''} ${evs.length ? 'tem-evento' : ''}" data-dia="${d}" style="cursor:${evs.length ? 'pointer' : 'default'}">
-          <div class="agenda-dia-num">${d}</div>
-          <div class="agenda-pontinhos">${pontinhos}</div>
-          ${evs.length > 3 ? `<div style="font-size:0.65rem;color:var(--muted);">+${evs.length - 3}</div>` : ''}
-        </div>`;
-    }
-
-    container.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-        <button class="btn btn-secondary" id="btn-agenda-prev" style="padding:0.3rem 0.8rem;">‹</button>
-        <div style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;text-transform:capitalize;color:var(--navy);">${nomeMes}</div>
-        <button class="btn btn-secondary" id="btn-agenda-next" style="padding:0.3rem 0.8rem;">›</button>
-      </div>
-      <div class="agenda-grid">
-        <div class="agenda-dow">Dom</div><div class="agenda-dow">Seg</div>
-        <div class="agenda-dow">Ter</div><div class="agenda-dow">Qua</div>
-        <div class="agenda-dow">Qui</div><div class="agenda-dow">Sex</div>
-        <div class="agenda-dow">Sáb</div>
-        ${cells}
-      </div>`;
-
-    document.getElementById('btn-agenda-prev')?.addEventListener('click', async () => {
-      mesAtual.setMonth(mesAtual.getMonth() - 1);
-      await carregarEventos(); renderCalendario(); renderListaEventos();
-    });
-    document.getElementById('btn-agenda-next')?.addEventListener('click', async () => {
-      mesAtual.setMonth(mesAtual.getMonth() + 1);
-      await carregarEventos(); renderCalendario(); renderListaEventos();
-    });
-
-    container.querySelectorAll('.agenda-cell.tem-evento').forEach(cell => {
-      cell.addEventListener('click', () => {
-        const dia = Number(cell.dataset.dia);
-        const evs = eventosCache.filter(ev => new Date(ev.data_inicio).getDate() === dia);
-        renderEventos(evs);
-        document.getElementById('agenda-lista-eventos')?.scrollIntoView({ behavior: 'smooth' });
-      });
-    });
-  }
-
-  function renderListaEventos() { renderEventos(eventosCache); }
-
-  function renderEventos(evs) {
-    const container = document.getElementById('agenda-lista-eventos');
-    if (!container) return;
-    if (!evs.length) {
-      container.innerHTML = `<div class="empty"><div style="font-size:2rem;margin-bottom:0.5rem;">📅</div><h3>Nenhum evento neste mês</h3><p>Clique em "+ Novo Evento" para criar.</p></div>`;
+  /* ════════════════════════════════════════════════
+     1) ABRIR MODAL DE GERAR
+  ════════════════════════════════════════════════ */
+  function abrirGerar() {
+    const modal = document.getElementById('modal-etiquetas');
+    if (!modal) {
+      console.error('[ETIQUETAS] Modal #modal-etiquetas ausente.');
+      window.showToast?.('Erro: modal não encontrado.', 'error');
       return;
     }
+    modal.classList.add('show');
 
-    const grouped = {};
-    evs.forEach(ev => {
-      const d = new Date(ev.data_inicio);
-      const key = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(ev);
-    });
-
-    container.innerHTML = Object.entries(grouped).map(([dia, evList]) => `
-      <div style="margin-bottom:1.2rem;">
-        <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.6rem;padding-bottom:0.3rem;border-bottom:1px solid var(--line);">${dia}</div>
-        ${evList.map(ev => renderEventoCard(ev)).join('')}
-      </div>`
-    ).join('');
-
-    container.querySelectorAll('[data-agenda-edit]').forEach(btn => {
-      btn.addEventListener('click', () => abrirFormEvento(Number(btn.dataset.agendaEdit)));
-    });
-    container.querySelectorAll('[data-agenda-delete]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Excluir este evento?')) return;
-        try {
-          await window.API.delete(`/agenda/${btn.dataset.agendaDelete}`);
-          window.showToast('Evento excluído.', 'success');
-          await carregarEventos(); renderCalendario(); renderListaEventos();
-        } catch (err) { window.showToast(err.message, 'error'); }
-      });
-    });
-    container.querySelectorAll('[data-agenda-notif]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Enviar WhatsApp para eleitores do bairro deste evento?')) return;
-        try {
-          const r = await window.API.post(`/agenda/${btn.dataset.agendaNotif}/notificar`, {});
-          window.showToast(`Disparando para ${r.total} eleitores em background.`, 'success');
-        } catch (err) { window.showToast(err.message, 'error'); }
-      });
-    });
-  }
-
-  function renderEventoCard(ev) {
-    const cfg = TIPO_CONFIG[ev.tipo] || TIPO_CONFIG.outro;
-    const hora = new Date(ev.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    return `
-      <div style="background:var(--cream);border-radius:6px;padding:0.9rem 1rem;margin-bottom:0.5rem;border-left:3px solid ${cfg.cor};display:flex;gap:0.8rem;align-items:flex-start;">
-        <div style="font-size:1.4rem;flex-shrink:0;">${cfg.icon}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;">
-            <div>
-              <div style="font-weight:600;color:var(--navy);">${esc(ev.titulo)}</div>
-              <div style="font-size:0.8rem;color:var(--muted);">
-                🕐 ${hora}
-                ${ev.local_nome ? ` · 📍 ${esc(ev.local_nome)}` : ''}
-                ${ev.bairro ? ` · ${esc(ev.bairro)}` : ''}
-                ${ev.lideranca_nome ? ` · 👤 ${esc(ev.lideranca_nome)}` : ''}
-              </div>
-              ${ev.descricao ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.3rem;">${esc(ev.descricao.substring(0,100))}${ev.descricao.length>100?'…':''}</div>` : ''}
-            </div>
-            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-              <button class="icon-btn" data-agenda-edit="${ev.id}" style="font-size:0.75rem;">Editar</button>
-              ${ev.bairro || ev.lideranca_id ? `<button class="icon-btn" data-agenda-notif="${ev.id}" style="font-size:0.75rem;">📱 Notif.</button>` : ''}
-              <button class="icon-btn danger" data-agenda-delete="${ev.id}" style="font-size:0.75rem;">Excluir</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  /* ══════════════════════════════════════════════════════
-     FORMULÁRIO
-  ══════════════════════════════════════════════════════ */
-  async function abrirFormEvento(id = null) {
-    const modal = document.getElementById('modal-agenda-form');
-    if (!modal) return;
-    let ev = null;
-    if (id) ev = eventosCache.find(e => e.id === id);
-
-    document.getElementById('agenda-form-titulo-modal').textContent = ev ? 'Editar Evento' : 'Novo Evento';
-    document.getElementById('ag-id').value = ev?.id || '';
-    document.getElementById('ag-titulo').value = ev?.titulo || '';
-    document.getElementById('ag-tipo').value = ev?.tipo || 'evento';
-    document.getElementById('ag-data-inicio').value = ev ? new Date(ev.data_inicio).toISOString().slice(0,16) : '';
-    document.getElementById('ag-data-fim').value = ev?.data_fim ? new Date(ev.data_fim).toISOString().slice(0,16) : '';
-    document.getElementById('ag-descricao').value = ev?.descricao || '';
-    document.getElementById('ag-local-nome').value = ev?.local_nome || '';
-    document.getElementById('ag-local-endereco').value = ev?.local_endereco || '';
-    document.getElementById('ag-bairro').value = ev?.bairro || '';
-    document.getElementById('ag-cidade').value = ev?.cidade || '';
-    document.getElementById('ag-notificar').checked = ev?.notificar_eleitores || false;
-
-    const sel = document.getElementById('ag-lideranca');
-    if (sel && window.GELiderancas) {
-      const lids = await window.GELiderancas.fetchAll();
-      sel.innerHTML = '<option value="">— Nenhuma —</option>' +
-        lids.map(l => `<option value="${l.id}" ${ev?.lideranca_id === l.id ? 'selected' : ''}>${esc(l.nome)}</option>`).join('');
+    const sel = document.getElementById('etq-tamanho');
+    const descEl = document.getElementById('etq-tamanho-desc');
+    if (sel) {
+      function atualizarDesc() {
+        const cfg = TAMANHOS[sel.value];
+        if (cfg && descEl) descEl.textContent = cfg.desc + ` · ${cfg.colunas * cfg.linhas} por folha`;
+      }
+      sel.removeEventListener('change', atualizarDesc);
+      sel.addEventListener('change', atualizarDesc);
+      atualizarDesc();
     }
+  }
+
+  /* ════════════════════════════════════════════════
+     2) PRÉ-VISUALIZAR
+  ════════════════════════════════════════════════ */
+  async function prepararPreview() {
+    const tamanho = document.getElementById('etq-tamanho')?.value;
+    const escopo = document.querySelector('input[name="etq-escopo"]:checked')?.value || 'todos';
+    const filtroBairro = document.getElementById('etq-filtro-bairro')?.value.trim() || '';
+    const filtroCidade = document.getElementById('etq-filtro-cidade')?.value.trim() || '';
+    const cfg = TAMANHOS[tamanho];
+    if (!cfg) { window.showToast?.('Tamanho inválido.', 'error'); return; }
+
+    try {
+      const qs = new URLSearchParams();
+      if (escopo === 'filtrados') {
+        if (filtroBairro) qs.set('bairro', filtroBairro);
+        if (filtroCidade) qs.set('cidade', filtroCidade);
+      }
+      qs.set('pageSize', '500');
+
+      const resp = await window.API.get('/eleitores?' + qs.toString());
+      const eleitores = resp.data || [];
+      if (!eleitores.length) {
+        window.showToast?.('Nenhum eleitor encontrado.', 'error');
+        return;
+      }
+
+      estadoAtual = { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade };
+
+      document.getElementById('modal-etiquetas')?.classList.remove('show');
+      renderPreviewCompleta();
+    } catch (err) {
+      window.showToast?.('Erro: ' + err.message, 'error');
+    }
+  }
+
+  function renderPreviewCompleta() {
+    const modal = document.getElementById('modal-etq-preview-full');
+    if (!modal) {
+      console.error('[ETIQUETAS] Modal #modal-etq-preview-full ausente.');
+      window.showToast?.('Modal de preview não encontrado no HTML.', 'error');
+      return;
+    }
+    const { eleitores, cfg } = estadoAtual;
+    const itemsPorFolha = cfg.colunas * cfg.linhas;
+    const totalFolhas = Math.ceil(eleitores.length / itemsPorFolha);
+
+    const infoEl = document.getElementById('etq-preview-info');
+    if (infoEl) infoEl.innerHTML = `
+      <strong>${eleitores.length}</strong> etiquetas · tamanho <strong>${cfg.nome}</strong>
+      · <strong>${totalFolhas}</strong> ${totalFolhas === 1 ? 'folha' : 'folhas'} A4
+    `;
+
+    const container = document.getElementById('etq-preview-grid');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (let f = 0; f < totalFolhas; f++) {
+      const grupo = eleitores.slice(f * itemsPorFolha, (f + 1) * itemsPorFolha);
+      const folha = document.createElement('div');
+      folha.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(${cfg.colunas}, 1fr);
+        gap: 4px;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+      `;
+
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'grid-column: 1 / -1; font-size:0.7rem; color:#9ca3af; margin-bottom:0.2rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;';
+      lbl.textContent = `Folha ${f + 1} de ${totalFolhas}`;
+      folha.appendChild(lbl);
+
+      grupo.forEach(e => {
+        const endLinha = [e.endereco, e.numero].filter(Boolean).join(', ');
+        const bairroCidade = [e.bairro, e.cidade].filter(Boolean).join(' - ');
+        const cepUF = [e.cep, e.uf].filter(Boolean).join('  ');
+        const et = document.createElement('div');
+        et.style.cssText = `
+          border: 1px dashed #d1d5db;
+          padding: 6px 8px;
+          border-radius: 3px;
+          font-size: 0.72rem;
+          line-height: 1.25;
+          background: #fafafa;
+          overflow: hidden;
+          min-height: 50px;
+        `;
+        et.innerHTML = `
+          <div style="font-weight:700;color:#1f2937;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(e.nome || '')}</div>
+          ${endLinha ? `<div style="color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(endLinha)}</div>` : ''}
+          ${bairroCidade ? `<div style="color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(bairroCidade)}</div>` : ''}
+          ${cepUF ? `<div style="color:#6b7280;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(cepUF)}</div>` : ''}
+        `;
+        folha.appendChild(et);
+      });
+
+      container.appendChild(folha);
+
+      if (f >= 2 && totalFolhas > 3) {
+        const aviso = document.createElement('div');
+        aviso.style.cssText = 'text-align:center;padding:1rem;color:#9ca3af;font-size:0.82rem;background:#fff;border:1px dashed #d1d5db;border-radius:4px;';
+        aviso.textContent = `+ ${totalFolhas - 3} folhas adicionais (total: ${totalFolhas} folhas, ${eleitores.length} etiquetas)`;
+        container.appendChild(aviso);
+        break;
+      }
+    }
+
     modal.classList.add('show');
   }
 
-  function esc(s) {
-    return String(s ?? '').replace(/[<>&"']/g, c =>
-      ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c]));
+  /* ════════════════════════════════════════════════
+     3) CONFIRMAR E IMPRIMIR
+  ════════════════════════════════════════════════ */
+  async function confirmarImpressao() {
+    const { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade } = estadoAtual;
+    if (!eleitores.length) return;
+
+    const html = construirHTMLImpressao(eleitores, cfg);
+    const w = window.open('', '_blank');
+    if (!w) { window.showToast?.('Permita pop-ups.', 'error'); return; }
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => setTimeout(() => w.print(), 300);
+
+    try {
+      const folhas = Math.ceil(eleitores.length / (cfg.colunas * cfg.linhas));
+      await window.API.post('/etiquetas/log', {
+        tamanho,
+        quantidade: eleitores.length,
+        folhas,
+        escopo,
+        filtro_bairro: filtroBairro || null,
+        filtro_cidade: filtroCidade || null,
+        ids: eleitores.map(e => Number(e.id)),
+      });
+    } catch (e) { /* não bloqueia */ }
+
+    document.getElementById('modal-etq-preview-full')?.classList.remove('show');
+    window.showToast?.('Etiquetas enviadas para impressão.', 'success');
   }
 
-  window.GEAgenda = { openAgenda, abrirFormEvento };
+  function voltarEditar() {
+    document.getElementById('modal-etq-preview-full')?.classList.remove('show');
+    document.getElementById('modal-etiquetas')?.classList.add('show');
+  }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-close="modal-agenda-form"]').forEach(btn =>
-      btn.addEventListener('click', () => document.getElementById('modal-agenda-form')?.classList.remove('show'))
+  /* ════════════════════════════════════════════════
+     4) HTML DE IMPRESSÃO
+  ════════════════════════════════════════════════ */
+  function construirHTMLImpressao(eleitores, cfg) {
+    const itemsPorFolha = cfg.colunas * cfg.linhas;
+    const folhas = [];
+    for (let i = 0; i < eleitores.length; i += itemsPorFolha) {
+      folhas.push(eleitores.slice(i, i + itemsPorFolha));
+    }
+
+    const renderEt = (e) => {
+      const endLinha = [e.endereco, e.numero].filter(Boolean).join(', ');
+      const bairroCidade = [e.bairro, e.cidade].filter(Boolean).join(' - ');
+      const cepUF = [e.cep, e.uf].filter(Boolean).join('  ');
+      return `
+        <div class="etiqueta">
+          <div class="nome">${esc(e.nome || '')}</div>
+          ${endLinha ? `<div class="end">${esc(endLinha)}</div>` : ''}
+          ${bairroCidade ? `<div class="bc">${esc(bairroCidade)}</div>` : ''}
+          ${cepUF ? `<div class="cep">${esc(cepUF)}</div>` : ''}
+        </div>`;
+    };
+
+    const renderFolha = (eList) => {
+      const cels = [];
+      for (let i = 0; i < itemsPorFolha; i++) {
+        cels.push(eList[i] ? renderEt(eList[i]) : '<div class="etiqueta vazia"></div>');
+      }
+      return `<div class="folha">${cels.join('')}</div>`;
+    };
+
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiquetas — ${cfg.nome}</title>
+<style>
+@page { size: A4 portrait; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #fff; color: #000; }
+.folha {
+  width: 210mm; height: 297mm;
+  padding: ${cfg.margemTopoMM}mm 0 0 ${cfg.margemEsqMM}mm;
+  page-break-after: always;
+  display: grid;
+  grid-template-columns: repeat(${cfg.colunas}, ${cfg.larguraMM}mm);
+  grid-template-rows: repeat(${cfg.linhas}, ${cfg.alturaMM}mm);
+  column-gap: ${cfg.espacoHMM}mm; row-gap: ${cfg.espacoVMM}mm;
+}
+.folha:last-child { page-break-after: auto; }
+.etiqueta {
+  width: ${cfg.larguraMM}mm; height: ${cfg.alturaMM}mm;
+  padding: 2mm 3mm; overflow: hidden;
+  font-size: ${cfg.fonte}px; line-height: 1.25;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.etiqueta.vazia { visibility: hidden; }
+.etiqueta .nome { font-weight: 700; font-size: ${cfg.fonte + 1}px; margin-bottom: 1mm;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etiqueta .end, .etiqueta .bc, .etiqueta .cep {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.etiqueta .cep { font-weight: 600; margin-top: 0.5mm; }
+@media screen {
+  body { background: #e5e7eb; padding: 20px; }
+  .folha { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin: 0 auto 20px; }
+  .etiqueta { border: 1px dashed #d1d5db; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .folha { box-shadow: none; margin: 0; }
+  .etiqueta { border: none; }
+}
+</style></head><body>
+${folhas.map(renderFolha).join('')}
+</body></html>`;
+  }
+
+  /* ════════════════════════════════════════════════
+     5) HISTÓRICO + REIMPRESSÃO COMO PDF
+  ════════════════════════════════════════════════ */
+  async function openHistorico() {
+    if (typeof window.switchView === 'function') {
+      // Guard interna do switchView vai prevenir recursão
+    }
+    await renderHistorico();
+  }
+
+  async function renderHistorico() {
+    const container = document.getElementById('etiquetas-historico-content');
+    if (!container) {
+      console.error('[ETIQUETAS] Container #etiquetas-historico-content ausente.');
+      return;
+    }
+    container.innerHTML = '<div style="padding:2rem;color:var(--muted);">Carregando…</div>';
+
+    try {
+      const rows = await window.API.get('/etiquetas/historico?limit=100');
+      if (!Array.isArray(rows) || !rows.length) {
+        container.innerHTML = `
+          <div class="empty" style="padding:3rem;text-align:center;">
+            <div style="font-size:2.5rem;">🏷️</div>
+            <h3>Nenhuma etiqueta gerada ainda</h3>
+            <p>Use <strong>Etiquetas → Gerar Etiquetas</strong> para criar a primeira.</p>
+          </div>`;
+        return;
+      }
+
+      const TAM = { carta: '33,9×99', media: '50,8×101,6', pequena: '100×25' };
+      container.innerHTML = `
+        <div style="margin-bottom:1rem;">
+          <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
+            Histórico de Etiquetas
+          </div>
+          <div style="font-size:0.85rem;color:var(--muted);">
+            ${rows.length} ${rows.length === 1 ? 'geração' : 'gerações'} registradas
+          </div>
+        </div>
+        <div class="panel" style="padding:0;overflow:hidden;">
+          <table style="width:100%;">
+            <thead>
+              <tr>
+                <th>Data / Hora</th>
+                <th>Usuário</th>
+                <th>Tamanho</th>
+                <th style="text-align:center;">Etiquetas</th>
+                <th style="text-align:center;">Folhas</th>
+                <th>Filtro</th>
+                <th style="text-align:right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${new Date(r.criado_em).toLocaleString('pt-BR')}</td>
+                  <td>${esc(r.gerado_por_nome || '—')}</td>
+                  <td><code style="background:var(--cream);padding:2px 6px;border-radius:3px;font-size:0.78rem;">${TAM[r.tamanho] || r.tamanho}</code></td>
+                  <td style="text-align:center;font-weight:600;">${r.quantidade}</td>
+                  <td style="text-align:center;">${r.folhas}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">
+                    ${r.escopo === 'todos' ? 'Todos' :
+                      [r.filtro_bairro && 'Bairro: ' + r.filtro_bairro,
+                       r.filtro_cidade && 'Cidade: ' + r.filtro_cidade].filter(Boolean).join(' · ') || '—'}
+                  </td>
+                  <td style="text-align:right;">
+                    <button class="btn btn-secondary" data-etq-pdf="${r.id}" style="font-size:0.75rem;padding:4px 8px;">
+                      📄 Visualizar PDF
+                    </button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      container.querySelectorAll('[data-etq-pdf]').forEach(btn => {
+        btn.addEventListener('click', () => visualizarComoPDF(Number(btn.dataset.etqPdf)));
+      });
+    } catch (err) {
+      container.innerHTML = `<div style="padding:2rem;color:var(--danger);">Erro: ${esc(err.message)}</div>`;
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     6) VISUALIZAR HISTÓRICO COMO PDF (nova aba)
+  ════════════════════════════════════════════════ */
+  async function visualizarComoPDF(id) {
+    try {
+      window.showToast?.('Gerando visualização…', 'info');
+      const det = await window.API.get(`/etiquetas/${id}`);
+      const cfg = TAMANHOS[det.tamanho];
+      if (!cfg) { window.showToast?.('Tamanho desconhecido.', 'error'); return; }
+      if (!det.eleitores?.length) {
+        window.showToast?.('Eleitores desta geração não estão mais disponíveis.', 'error');
+        return;
+      }
+
+      // Abre em nova aba como visualização (não imprime automaticamente)
+      const html = construirHTMLImpressao(det.eleitores, cfg)
+        .replace('w.print()', '/* manual */');
+
+      const dataHora = new Date(det.criado_em).toLocaleString('pt-BR');
+      const titulo = `Etiquetas geradas em ${dataHora}`;
+
+      // Adiciona header informativo + botão de imprimir
+      const htmlComHeader = html.replace('<body>', `<body>
+        <div class="info-bar" style="background:#1e2a4a;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;">
+          <div style="font-family:Arial;">
+            <div style="font-size:14px;font-weight:bold;">${esc(titulo)}</div>
+            <div style="font-size:12px;opacity:0.8;">${det.eleitores.length} etiquetas · ${det.folhas} folhas · ${esc(cfg.nome)} · Gerado por ${esc(det.gerado_por_nome || '—')}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="window.print()" style="background:#c9a961;color:#1e2a4a;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;font-family:Arial;font-size:13px;">🖨️ Imprimir</button>
+            <button onclick="window.close()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.3);padding:8px 16px;border-radius:4px;cursor:pointer;font-family:Arial;font-size:13px;">Fechar</button>
+          </div>
+        </div>
+        <style>@media print { .info-bar { display: none !important; } }</style>`);
+
+      const w = window.open('', '_blank');
+      if (!w) { window.showToast?.('Permita pop-ups.', 'error'); return; }
+      w.document.write(htmlComHeader);
+      w.document.close();
+      w.document.title = titulo;
+    } catch (err) {
+      window.showToast?.('Erro: ' + err.message, 'error');
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     UTILS + INIT
+  ════════════════════════════════════════════════ */
+  function esc(s) {
+    return String(s ?? '').replace(/[<>&"']/g, c =>
+      ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function init() {
+    // BOTÃO "Abrir gerador" na view de etiquetas-gerar
+    const btnAbrirGerador = document.getElementById('btn-abrir-modal-etiquetas');
+    if (btnAbrirGerador) {
+      btnAbrirGerador.addEventListener('click', abrirGerar);
+    }
+
+    // Modal "Gerar"
+    document.getElementById('btn-etq-gerar')?.addEventListener('click', prepararPreview);
+    document.querySelectorAll('[data-close="modal-etiquetas"]').forEach(btn =>
+      btn.addEventListener('click', () => document.getElementById('modal-etiquetas')?.classList.remove('show'))
     );
 
-    document.getElementById('btn-agenda-salvar')?.addEventListener('click', async () => {
-      const id = document.getElementById('ag-id').value;
-      const data = {
-        titulo:              document.getElementById('ag-titulo').value.trim(),
-        tipo:                document.getElementById('ag-tipo').value,
-        data_inicio:         document.getElementById('ag-data-inicio').value,
-        data_fim:            document.getElementById('ag-data-fim').value || null,
-        descricao:           document.getElementById('ag-descricao').value.trim() || null,
-        local_nome:          document.getElementById('ag-local-nome').value.trim() || null,
-        local_endereco:      document.getElementById('ag-local-endereco').value.trim() || null,
-        bairro:              document.getElementById('ag-bairro').value.trim() || null,
-        cidade:              document.getElementById('ag-cidade').value.trim() || null,
-        lideranca_id:        Number(document.getElementById('ag-lideranca').value) || null,
-        notificar_eleitores: document.getElementById('ag-notificar').checked,
-      };
-      if (!data.titulo) { window.showToast('Título obrigatório.', 'error'); return; }
-      if (!data.data_inicio) { window.showToast('Data de início obrigatória.', 'error'); return; }
+    // Modal "Preview completa"
+    document.getElementById('btn-etq-preview-confirmar')?.addEventListener('click', confirmarImpressao);
+    document.getElementById('btn-etq-preview-voltar')?.addEventListener('click', voltarEditar);
+    document.querySelectorAll('[data-close="modal-etq-preview-full"]').forEach(btn =>
+      btn.addEventListener('click', () => document.getElementById('modal-etq-preview-full')?.classList.remove('show'))
+    );
+  }
 
-      try {
-        if (id) {
-          await window.API.put(`/agenda/${id}`, data);
-          window.showToast('Evento atualizado!', 'success');
-        } else {
-          await window.API.post('/agenda', data);
-          window.showToast('Evento criado!', 'success');
-        }
-        document.getElementById('modal-agenda-form').classList.remove('show');
-        await carregarEventos(); renderCalendario(); renderListaEventos();
-      } catch (err) {
-        window.showToast(err.message, 'error');
-      }
-    });
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // EXPORTA explicitamente
+  window.GEEtiquetas = {
+    abrirGerar,
+    openHistorico,
+    visualizarComoPDF
+  };
+
+  console.log('[ETIQUETAS v3] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
 
 })();
