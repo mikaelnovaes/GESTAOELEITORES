@@ -218,11 +218,10 @@ function showApp(user) {
   currentUser = user;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.add('show');
-  document.getElementById('footer-user-name').textContent = user.nome;
-  document.getElementById('footer-user-role').textContent =
-    user.tipo === 'master' ? 'MASTER'
-    : user.tipo === 'admin' ? 'Administrador'
-    : 'Usuário';
+
+  // Sidebar nova: avisa que o usuário mudou (ela atualiza nome/role/avatar sozinha)
+  window.currentUser = currentUser;
+  window.dispatchEvent(new CustomEvent('ge:user-changed'));
 
   const isPrivileged = user.tipo === 'admin' || user.tipo === 'master';
   document.body.classList.toggle('is-admin', isPrivileged);
@@ -231,8 +230,6 @@ function showApp(user) {
   });
 
 renderActingBanner();
-window.currentUser = currentUser;
-window.dispatchEvent(new CustomEvent('ge:user-changed'));
 switchView('dashboard');
 }
 
