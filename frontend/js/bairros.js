@@ -1,7 +1,7 @@
 /**
  * frontend/js/bairros.js
  *
- * Funcionalidade "Verificar endereços / Padronizar bairros"
+ * Funcionalidade "Verificar endereços / Padronizar bairros" 
  *
  * Fluxo:
  *  1. Usuário clica "🔍 Verificar bairros" na tela de Eleitores
