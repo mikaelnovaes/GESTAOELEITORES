@@ -1,18 +1,25 @@
 /**
- * backend/routes/mapa.js
- * Endpoints do Mapa Eleitoral
+ * backend/routes/mapa-route.js (v2)
  *
- * GET    /api/mapa/pontos                       — pontos do tenant (eleitores + lideranças com coords)
- * GET    /api/mapa/stats                        — contadores de geocodificação
- * POST   /api/mapa/geocode/:tipo/:id            — força regeocodificação de um registro
- * POST   /api/mapa/geocode-pendentes            — geocodifica todos pendentes do tenant (lote, async)
+ * MUDANÇAS vs v1:
+ *  - NOVO endpoint GET /falhas — lista eleitores/lideranças com falha de geocodificação
+ *    + classifica o motivo (sem cidade, sem endereço, não encontrado, etc)
+ *  - POST /geocode-pendentes agora retorna estatística MAIS detalhada
+ *  - GET /stats agora separa "failed" entre "no_address" e "not_found"
+ *
+ * Endpoints:
+ *  GET    /api/mapa/pontos                    — pontos com coords (heatmap + pins)
+ *  GET    /api/mapa/stats                     — totais por status
+ *  GET    /api/mapa/falhas                    — NOVO: detalhes dos que falharam
+ *  POST   /api/mapa/geocode/:tipo/:id         — geocodifica 1
+ *  POST   /api/mapa/geocode-pendentes         — geocodifica todos (lote)
  */
 
 'use strict';
 
 const express = require('express');
 const { param, query, validationResult } = require('express-validator');
-const db       = require('../config/database');
+const db = require('../config/database');
 const geocoder = require('../services/geocoder');
 const { requireAdmin } = require('../middleware/auth');
 
@@ -25,7 +32,6 @@ function hasErrors(req, res) {
 }
 
 /* ── GET /api/mapa/pontos ────────────────────────────────── */
-// Retorna eleitores + lideranças do tenant que já têm coordenadas
 router.get('/pontos',
   [
     query('tipo').optional().isIn(['eleitor', 'lideranca', 'ambos']),
@@ -50,37 +56,50 @@ router.get('/pontos',
         conds.push(`tipo = $${pIdx++}`);
         params.push(tipo);
       }
-      if (bairro) {
-        conds.push(`bairro ILIKE $${pIdx++}`);
-        params.push(`%${bairro}%`);
-      }
-      if (cidade) {
-        conds.push(`cidade ILIKE $${pIdx++}`);
-        params.push(`%${cidade}%`);
-      }
-      if (lidId) {
-        // Eleitores vinculados à liderança OU a própria liderança
+      if (bairro) { conds.push(`bairro ILIKE $${pIdx++}`); params.push(`%${bairro}%`); }
+      if (cidade) { conds.push(`cidade ILIKE $${pIdx++}`); params.push(`%${cidade}%`); }
+      if (lidId)  {
         conds.push(`(lideranca_id = $${pIdx} OR (tipo = 'lideranca' AND id = $${pIdx}))`);
         params.push(lidId);
         pIdx++;
       }
 
-      const r = await db.query(
-        `SELECT tipo, id, nome, telefone, email, endereco, numero,
-                bairro, cidade, foto_url, latitude, longitude,
-                lideranca_id, cargo, partido
-         FROM v_mapa_pontos
-         WHERE ${conds.join(' AND ')}
-         LIMIT 5000`,
-        params
-      );
+      const r = await db.query(`
+        SELECT id, nome, telefone, latitude, longitude,
+               endereco, numero, bairro, cidade, tipo,
+               COALESCE(cargo, '') AS cargo,
+               COALESCE(lideranca_id, NULL) AS lideranca_id
+        FROM (
+          SELECT id, nome, telefone, latitude, longitude,
+                 endereco, numero, bairro, cidade,
+                 'eleitor'::text AS tipo,
+                 NULL::text AS cargo,
+                 lideranca_id
+          FROM eleitores
+          WHERE tenant_id = $1 AND ativo = TRUE
+            AND geocoded_status = 'done' AND latitude IS NOT NULL AND longitude IS NOT NULL
+
+          UNION ALL
+
+          SELECT id, nome, telefone, latitude, longitude,
+                 endereco, numero, bairro, cidade,
+                 'lideranca'::text AS tipo,
+                 cargo,
+                 NULL::bigint AS lideranca_id
+          FROM liderancas
+          WHERE tenant_id = $1 AND ativo = TRUE
+            AND geocoded_status = 'done' AND latitude IS NOT NULL AND longitude IS NOT NULL
+        ) AS combined
+        WHERE ${conds.join(' AND ')}
+        LIMIT 5000
+      `, params);
 
       res.json(r.rows.map(p => ({
         ...p,
         id: Number(p.id),
+        latitude: parseFloat(p.latitude),
+        longitude: parseFloat(p.longitude),
         lideranca_id: p.lideranca_id ? Number(p.lideranca_id) : null,
-        latitude: Number(p.latitude),
-        longitude: Number(p.longitude),
       })));
     } catch (err) {
       console.error('[MAPA] GET /pontos:', err);
@@ -89,94 +108,202 @@ router.get('/pontos',
   }
 );
 
-/* ── GET /api/mapa/stats ─────────────────────────────────── */
+/* ── GET /api/mapa/stats ────────────────────────────────── */
 router.get('/stats', async (req, res) => {
   try {
-    const r = await db.query(
-      `SELECT
-        (SELECT COUNT(*)::INT FROM eleitores
-          WHERE tenant_id = $1 AND ativo = TRUE) AS eleitores_total,
-        (SELECT COUNT(*)::INT FROM eleitores
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'done') AS eleitores_geocoded,
-        (SELECT COUNT(*)::INT FROM eleitores
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending') AS eleitores_pending,
-        (SELECT COUNT(*)::INT FROM eleitores
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('failed','no_address')) AS eleitores_failed,
-        (SELECT COUNT(*)::INT FROM liderancas
-          WHERE tenant_id = $1 AND ativo = TRUE) AS liderancas_total,
-        (SELECT COUNT(*)::INT FROM liderancas
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'done') AS liderancas_geocoded,
-        (SELECT COUNT(*)::INT FROM liderancas
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status = 'pending') AS liderancas_pending,
-        (SELECT COUNT(*)::INT FROM liderancas
-          WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('failed','no_address')) AS liderancas_failed`,
-      [req.user.tenant_id]
-    );
-    res.json(r.rows[0] || {});
+    const tid = req.user.tenant_id;
+
+    const eR = await db.query(`
+      SELECT
+        COUNT(*)::INT AS total,
+        COUNT(*) FILTER (WHERE geocoded_status = 'done')::INT AS geocoded,
+        COUNT(*) FILTER (WHERE geocoded_status = 'pending' OR geocoded_status IS NULL)::INT AS pending,
+        COUNT(*) FILTER (WHERE geocoded_status = 'failed')::INT AS failed,
+        COUNT(*) FILTER (WHERE geocoded_status = 'no_address')::INT AS no_address
+      FROM eleitores WHERE tenant_id = $1 AND ativo = TRUE
+    `, [tid]);
+
+    const lR = await db.query(`
+      SELECT
+        COUNT(*)::INT AS total,
+        COUNT(*) FILTER (WHERE geocoded_status = 'done')::INT AS geocoded,
+        COUNT(*) FILTER (WHERE geocoded_status = 'pending' OR geocoded_status IS NULL)::INT AS pending,
+        COUNT(*) FILTER (WHERE geocoded_status = 'failed')::INT AS failed,
+        COUNT(*) FILTER (WHERE geocoded_status = 'no_address')::INT AS no_address
+      FROM liderancas WHERE tenant_id = $1 AND ativo = TRUE
+    `, [tid]);
+
+    res.json({
+      eleitores_total:      eR.rows[0].total,
+      eleitores_geocoded:   eR.rows[0].geocoded,
+      eleitores_pending:    eR.rows[0].pending,
+      eleitores_failed:     eR.rows[0].failed,
+      eleitores_no_address: eR.rows[0].no_address,
+      liderancas_total:      lR.rows[0].total,
+      liderancas_geocoded:   lR.rows[0].geocoded,
+      liderancas_pending:    lR.rows[0].pending,
+      liderancas_failed:     lR.rows[0].failed,
+      liderancas_no_address: lR.rows[0].no_address,
+    });
   } catch (err) {
     console.error('[MAPA] GET /stats:', err);
     res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
   }
 });
 
-/* ── POST /api/mapa/geocode/:tipo/:id ────────────────────── */
-// Força nova geocodificação de um registro específico
+/* ── GET /api/mapa/falhas ────────────────────────────────── */
+/**
+ * Lista registros que falharam na geocodificação, classificando o motivo:
+ *  - 'no_city'     → endereço sem cidade
+ *  - 'no_state'    → endereço sem UF/estado
+ *  - 'no_address'  → sem rua/avenida
+ *  - 'not_found'   → endereço completo mas não foi achado no provider
+ */
+router.get('/falhas',
+  [query('limit').optional().toInt().isInt({ min: 1, max: 500 })],
+  async (req, res) => {
+    if (hasErrors(req, res)) return;
+    try {
+      const tid = req.user.tenant_id;
+      const limit = req.query.limit || 200;
+
+      const sql = `
+        SELECT id, nome, endereco, numero, bairro, cidade,
+               geocoded_status, geocoded_attempt,
+               'eleitor'::text AS tipo
+        FROM eleitores
+        WHERE tenant_id = $1 AND ativo = TRUE
+          AND geocoded_status IN ('failed', 'no_address')
+        UNION ALL
+        SELECT id, nome, endereco, numero, bairro, cidade,
+               geocoded_status, geocoded_attempt,
+               'lideranca'::text AS tipo
+        FROM liderancas
+        WHERE tenant_id = $1 AND ativo = TRUE
+          AND geocoded_status IN ('failed', 'no_address')
+        ORDER BY geocoded_status ASC, id DESC
+        LIMIT $2
+      `;
+      const r = await db.query(sql, [tid, limit]);
+
+      const rows = r.rows.map(row => {
+        let motivo = 'not_found';
+        let motivo_label = 'Endereço não encontrado no mapa';
+        let sugestao = 'Verifique se o endereço está correto (sem erros de digitação).';
+
+        if (!row.endereco && !row.bairro) {
+          motivo = 'no_address';
+          motivo_label = 'Sem rua/avenida cadastrada';
+          sugestao = 'Adicione o endereço completo do eleitor.';
+        } else if (!row.cidade) {
+          motivo = 'no_city';
+          motivo_label = 'Cidade não preenchida';
+          sugestao = 'Adicione a cidade no cadastro do eleitor.';
+        } else if (row.geocoded_status === 'failed') {
+          motivo = 'not_found';
+          motivo_label = 'Endereço não localizado pelo OpenStreetMap';
+          sugestao = 'Verifique se há erro de digitação (ex: "Avenida Rduardo" em vez de "Eduardo").';
+        }
+
+        return {
+          id: Number(row.id),
+          tipo: row.tipo,
+          nome: row.nome,
+          endereco_completo: [
+            [row.endereco, row.numero].filter(Boolean).join(', '),
+            row.bairro,
+            row.cidade
+          ].filter(Boolean).join(' — '),
+          motivo,
+          motivo_label,
+          sugestao,
+          tentativas: row.geocoded_attempt || 0,
+        };
+      });
+
+      // Agrupa por motivo pra resumo
+      const resumo = {};
+      rows.forEach(r => {
+        resumo[r.motivo] = (resumo[r.motivo] || 0) + 1;
+      });
+
+      res.json({ resumo, total: rows.length, registros: rows });
+    } catch (err) {
+      console.error('[MAPA] GET /falhas:', err);
+      res.status(500).json({ error: 'Erro ao buscar falhas.' });
+    }
+  }
+);
+
+/* ── POST /api/mapa/geocode/:tipo/:id ─────────────────────── */
 router.post('/geocode/:tipo/:id',
   requireAdmin,
   [
     param('tipo').isIn(['eleitor', 'lideranca']),
-    param('id').isInt({ min: 1 }).toInt(),
+    param('id').toInt().isInt({ min: 1 }),
   ],
   async (req, res) => {
     if (hasErrors(req, res)) return;
-    const table = req.params.tipo === 'eleitor' ? 'eleitores' : 'liderancas';
     try {
-      const result = await geocoder.geocodeAndUpdate(db, table, req.params.id, req.user.tenant_id);
-      res.json(result);
+      const tabela = req.params.tipo === 'eleitor' ? 'eleitores' : 'liderancas';
+      const r = await geocoder.geocodeAndUpdate(db, tabela, req.params.id, req.user.tenant_id);
+      res.json(r);
     } catch (err) {
-      console.error('[MAPA] geocode/:tipo/:id:', err);
-      res.status(500).json({ error: 'Erro ao geocodificar.' });
+      console.error('[MAPA] POST /geocode/:tipo/:id:', err);
+      res.status(500).json({ error: err.message });
     }
   }
 );
 
 /* ── POST /api/mapa/geocode-pendentes ────────────────────── */
-// Dispara geocodificação em LOTE de todos os pendentes do tenant.
-// Roda em background (não bloqueia a resposta).
-// Retorna imediatamente com a quantidade que será processada.
 router.post('/geocode-pendentes',
   requireAdmin,
   async (req, res) => {
     try {
-      // Conta quantos serão processados
+      const tid = req.user.tenant_id;
       const eR = await db.query(
         `SELECT id FROM eleitores
-         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('pending', 'failed')
+         WHERE tenant_id = $1 AND ativo = TRUE
+           AND geocoded_status IN ('pending', 'failed')
+           AND (geocoded_attempt IS NULL OR geocoded_attempt < 3)
          LIMIT 500`,
-        [req.user.tenant_id]
+        [tid]
       );
       const lR = await db.query(
         `SELECT id FROM liderancas
-         WHERE tenant_id = $1 AND ativo = TRUE AND geocoded_status IN ('pending', 'failed')
+         WHERE tenant_id = $1 AND ativo = TRUE
+           AND geocoded_status IN ('pending', 'failed')
+           AND (geocoded_attempt IS NULL OR geocoded_attempt < 3)
          LIMIT 500`,
-        [req.user.tenant_id]
+        [tid]
       );
 
-      const eleitorIds   = eR.rows.map(r => Number(r.id));
+      const eleitorIds = eR.rows.map(r => Number(r.id));
       const liderancaIds = lR.rows.map(r => Number(r.id));
       const total = eleitorIds.length + liderancaIds.length;
 
-      // Dispara processamento em background
       (async () => {
+        let okE = 0, falhaE = 0;
         for (const id of eleitorIds) {
-          try { await geocoder.geocodeAndUpdate(db, 'eleitores', id, req.user.tenant_id); }
-          catch (e) { console.warn('[MAPA] bg eleitor', id, e.message); }
+          try {
+            const r = await geocoder.geocodeAndUpdate(db, 'eleitores', id, tid);
+            if (r.ok) okE++; else falhaE++;
+          } catch (e) {
+            falhaE++;
+            console.warn('[MAPA] bg eleitor', id, e.message);
+          }
         }
+        let okL = 0, falhaL = 0;
         for (const id of liderancaIds) {
-          try { await geocoder.geocodeAndUpdate(db, 'liderancas', id, req.user.tenant_id); }
-          catch (e) { console.warn('[MAPA] bg lideranca', id, e.message); }
+          try {
+            const r = await geocoder.geocodeAndUpdate(db, 'liderancas', id, tid);
+            if (r.ok) okL++; else falhaL++;
+          } catch (e) {
+            falhaL++;
+            console.warn('[MAPA] bg lideranca', id, e.message);
+          }
         }
-        console.log(`[MAPA] Geocode em lote concluído: ${total} registros (tenant ${req.user.tenant_id})`);
+        console.log(`[MAPA] Geocode em lote tenant ${tid}: ${okE+okL} sucessos, ${falhaE+falhaL} falhas (de ${total})`);
       })();
 
       res.json({
@@ -185,8 +312,8 @@ router.post('/geocode-pendentes',
         liderancas: liderancaIds.length,
         estimated_seconds: total * 1.2,
         message: total > 0
-          ? `${total} registro(s) sendo processado(s) em segundo plano. Volte e recarregue o mapa em alguns minutos.`
-          : 'Nenhum registro pendente.',
+          ? `${total} registro(s) sendo processado(s). Tempo estimado: ${Math.ceil(total * 1.2 / 60)} min. Recarregue o mapa em alguns minutos.`
+          : 'Nenhum registro pendente. Use o botão Falhas para ver porque alguns não foram geocodificados.',
       });
     } catch (err) {
       console.error('[MAPA] geocode-pendentes:', err);
