@@ -1,9 +1,11 @@
 /**
- * frontend/js/mapa.js (v6 — heatmap + pins + polling + análise por bairro)
- * Expõe: window.GEMapa.openMap()
+ * frontend/js/mapa.js (v7 — auto-geocode + análise de falhas)
  *
- * REQUER no index.html:
- *   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+ * MUDANÇAS vs v6:
+ *  - Auto-geocodifica pendentes ao abrir a tela (uma vez por sessão de view)
+ *  - Botão "🔍 Ver falhas" abre modal com lista detalhada + motivo da falha
+ *  - Stats agora separa "no_address" de "failed"
+ *  - Mostra resumo de motivos das falhas no painel lateral
  */
 
 'use strict';
@@ -17,15 +19,14 @@
   let pollingInterval = null;
   let mostrarHeatmap = true;
   let mostrarPins = true;
+  let autoGeocodeJaFeito = false;
+  let statsCache = null;
 
   function esc(s) {
     return String(s ?? '').replace(/[<>&"']/g, c =>
-      ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;' }[c]));
+      ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  /* ═══════════════════════════════════════════════
-     INICIALIZAÇÃO DO MAPA
-  ═══════════════════════════════════════════════ */
   function ensureMap() {
     if (map) return map;
     const container = document.getElementById('mapa-container');
@@ -36,7 +37,7 @@
     }
 
     map = L.map('mapa-container', {
-      center: [-23.5505, -46.6333], // SP default
+      center: [-23.5505, -46.6333],
       zoom: 11,
       zoomControl: true,
     });
@@ -57,9 +58,6 @@
     return map;
   }
 
-  /* ═══════════════════════════════════════════════
-     ÍCONES E POPUPS
-  ═══════════════════════════════════════════════ */
   function makeIcon(tipo) {
     const cor = tipo === 'lideranca' ? '#8b5cf6' : '#c9a961';
     const icone = tipo === 'lideranca' ? '⭐' : '👤';
@@ -86,9 +84,6 @@
       </div>`;
   }
 
-  /* ═══════════════════════════════════════════════
-     CARREGAR PONTOS
-  ═══════════════════════════════════════════════ */
   async function loadPoints() {
     try {
       const tipo = document.getElementById('map-filter-tipo')?.value || 'ambos';
@@ -108,29 +103,23 @@
       renderPoints();
       atualizarAnaliseBairros();
     } catch (err) {
-      window.showToast('Erro ao carregar mapa: ' + err.message, 'error');
+      window.showToast?.('Erro ao carregar mapa: ' + err.message, 'error');
     }
   }
 
-  /* ═══════════════════════════════════════════════
-     RENDERIZAR PONTOS (heatmap + pins)
-  ═══════════════════════════════════════════════ */
   function renderPoints() {
     if (!map) return;
-
-    // Limpa camadas anteriores
     if (clusterGroup) clusterGroup.clearLayers();
     if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
     if (!pontos.length) {
-      document.getElementById('map-status').textContent = 'Nenhum ponto neste filtro';
+      const el = document.getElementById('map-status');
+      if (el) el.textContent = 'Nenhum ponto neste filtro';
       return;
     }
 
-    // ── HEATMAP ──
     if (mostrarHeatmap && typeof L.heatLayer === 'function') {
       const heatData = pontos.map(p => {
-        // Lideranças pesam mais (peso 3x), eleitores peso 1
         const peso = p.tipo === 'lideranca' ? 3 : 1;
         return [p.latitude, p.longitude, peso];
       });
@@ -139,18 +128,11 @@
         blur: 25,
         maxZoom: 17,
         minOpacity: 0.4,
-        gradient: {
-          0.0: '#3b82f6',  // azul (frio)
-          0.3: '#22c55e',  // verde
-          0.5: '#eab308',  // amarelo
-          0.7: '#f97316',  // laranja
-          1.0: '#dc2626'   // vermelho (quente)
-        }
+        gradient: { 0.0:'#3b82f6', 0.3:'#22c55e', 0.5:'#eab308', 0.7:'#f97316', 1.0:'#dc2626' }
       });
       map.addLayer(heatLayer);
     }
 
-    // ── PINS ──
     if (mostrarPins && clusterGroup) {
       pontos.forEach(p => {
         if (!p.latitude || !p.longitude) return;
@@ -160,23 +142,19 @@
       });
     }
 
-    // Ajusta zoom para todos os pontos
     if (pontos.length) {
       const bounds = L.latLngBounds(pontos.map(p => [p.latitude, p.longitude]));
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
     }
 
-    document.getElementById('map-status').textContent = `${pontos.length} ponto${pontos.length !== 1 ? 's' : ''} no mapa`;
+    const el = document.getElementById('map-status');
+    if (el) el.textContent = `${pontos.length} ponto${pontos.length !== 1 ? 's' : ''} no mapa`;
   }
 
-  /* ═══════════════════════════════════════════════
-     ANÁLISE POR BAIRRO (termômetro lateral)
-  ═══════════════════════════════════════════════ */
   function atualizarAnaliseBairros() {
     const container = document.getElementById('mapa-analise-bairros');
     if (!container) return;
 
-    // Agrupa pontos por bairro
     const porBairro = {};
     pontos.forEach(p => {
       const b = p.bairro || '— Sem bairro';
@@ -205,7 +183,7 @@
       <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.6rem;">
         Top ${ordenados.length} concentrações
       </div>
-      ${ordenados.map((b, i) => {
+      ${ordenados.map((b) => {
         const pct = (b.total / maxTotal) * 100;
         const corBarra = pct >= 80 ? '#dc2626' :
                          pct >= 60 ? '#f97316' :
@@ -228,9 +206,6 @@
     `;
   }
 
-  /* ═══════════════════════════════════════════════
-     FILTROS
-  ═══════════════════════════════════════════════ */
   function populateFilterDropdowns() {
     const bairros = [...new Set(pontos.map(p => p.bairro).filter(Boolean))].sort();
     const cidades = [...new Set(pontos.map(p => p.cidade).filter(Boolean))].sort();
@@ -257,48 +232,178 @@
     } catch {}
   }
 
-  /* ═══════════════════════════════════════════════
-     STATS
-  ═══════════════════════════════════════════════ */
   async function loadStats() {
     try {
       const stats = await window.API.get('/mapa/stats');
-      const setStat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+      statsCache = stats;
+      const setStat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v ?? '—').toLocaleString('pt-BR'); };
       setStat('map-stat-e-total', stats.eleitores_total);
       setStat('map-stat-e-geocoded', stats.eleitores_geocoded);
       setStat('map-stat-e-pending', stats.eleitores_pending);
-      setStat('map-stat-e-failed', stats.eleitores_failed);
+      // Falhas = failed + no_address (mostra TOTAL com tooltip)
+      const totFalhasE = (stats.eleitores_failed || 0) + (stats.eleitores_no_address || 0);
+      setStat('map-stat-e-failed', totFalhasE);
+      const failedEl = document.getElementById('map-stat-e-failed');
+      if (failedEl) {
+        failedEl.title = `${stats.eleitores_failed || 0} não encontrados + ${stats.eleitores_no_address || 0} sem endereço completo`;
+        failedEl.style.cursor = 'pointer';
+        failedEl.style.textDecoration = 'underline';
+        failedEl.style.color = '#dc2626';
+      }
       setStat('map-stat-l-total', stats.liderancas_total);
       setStat('map-stat-l-geocoded', stats.liderancas_geocoded);
       setStat('map-stat-l-pending', stats.liderancas_pending);
-      setStat('map-stat-l-failed', stats.liderancas_failed);
-    } catch {}
-  }
-
-  /* ═══════════════════════════════════════════════
-     GEOCODIFICAR PENDENTES
-  ═══════════════════════════════════════════════ */
-  async function geocodePendentes() {
-    if (!confirm('Geocodificar endereços pendentes e falhas?\nIsso pode demorar alguns minutos.')) return;
-    try {
-      const r = await window.API.post('/mapa/geocode-pendentes', {});
-      window.showToast(`Processados: ${r.total || 0}. Recarregando…`, 'success');
-      setTimeout(async () => {
-        await loadStats();
-        await loadPoints();
-      }, 2000);
+      setStat('map-stat-l-failed', (stats.liderancas_failed || 0) + (stats.liderancas_no_address || 0));
     } catch (err) {
-      window.showToast('Erro: ' + err.message, 'error');
+      console.error('[MAPA] loadStats:', err);
     }
   }
 
   /* ═══════════════════════════════════════════════
-     POLLING AUTOMÁTICO (30 segundos)
+     AUTO-GEOCODE AO ABRIR (apenas se tem pendentes)
   ═══════════════════════════════════════════════ */
+  async function autoGeocode() {
+    if (autoGeocodeJaFeito) return;
+    autoGeocodeJaFeito = true;
+    try {
+      const pendentes = (statsCache?.eleitores_pending || 0) + (statsCache?.liderancas_pending || 0);
+      if (pendentes === 0) return;
+
+      console.log(`[MAPA] Auto-geocodificando ${pendentes} pendentes...`);
+      window.showToast?.(`Geocodificando ${pendentes} endereços em segundo plano…`, 'info');
+
+      const r = await window.API.post('/mapa/geocode-pendentes', {});
+      if (r.scheduled > 0) {
+        // Recarrega stats periodicamente
+        const intervalo = setInterval(async () => {
+          await loadStats();
+          await loadPoints();
+          const aindaPendente = (statsCache?.eleitores_pending || 0) + (statsCache?.liderancas_pending || 0);
+          if (aindaPendente === 0) {
+            clearInterval(intervalo);
+            window.showToast?.('Geocodificação concluída!', 'success');
+          }
+        }, 15000);
+        // Para o intervalo se sair da view
+        setTimeout(() => clearInterval(intervalo), 5 * 60 * 1000); // 5 min máx
+      }
+    } catch (err) {
+      console.error('[MAPA] autoGeocode:', err);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════
+     MODAL DE FALHAS — mostra o motivo de cada falha
+  ═══════════════════════════════════════════════ */
+  async function abrirModalFalhas() {
+    let modal = document.getElementById('modal-mapa-falhas');
+    if (!modal) {
+      // Cria modal dinamicamente se não existir
+      modal = document.createElement('div');
+      modal.id = 'modal-mapa-falhas';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal" style="max-width:760px;max-height:88vh;">
+          <div class="modal-header">
+            <div class="modal-title">⚠️ Endereços com Falha de Geocodificação</div>
+            <button class="modal-close" data-close-falhas>×</button>
+          </div>
+          <div class="modal-body" style="overflow-y:auto;max-height:65vh;">
+            <div id="modal-mapa-falhas-body" style="padding:0.5rem;">Carregando…</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-close-falhas>Fechar</button>
+            <button class="btn btn-primary" id="btn-retry-falhas">🔄 Tentar geocodificar novamente</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.querySelectorAll('[data-close-falhas]').forEach(b =>
+        b.addEventListener('click', () => modal.classList.remove('show'))
+      );
+      document.getElementById('btn-retry-falhas')?.addEventListener('click', async () => {
+        try {
+          window.showToast?.('Retentando geocodificação…', 'info');
+          await window.API.post('/mapa/geocode-pendentes', {});
+          modal.classList.remove('show');
+          setTimeout(async () => { await loadStats(); await loadPoints(); }, 3000);
+        } catch (err) {
+          window.showToast?.('Erro: ' + err.message, 'error');
+        }
+      });
+    }
+    modal.classList.add('show');
+
+    const body = document.getElementById('modal-mapa-falhas-body');
+    body.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center;">Carregando…</div>';
+
+    try {
+      const r = await window.API.get('/mapa/falhas?limit=200');
+      if (!r.registros?.length) {
+        body.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center;">🎉 Nenhuma falha! Todos os endereços foram geocodificados.</div>';
+        return;
+      }
+
+      const labelsMotivo = {
+        'no_city': '🏙️ Cidade não preenchida',
+        'no_address': '📍 Endereço incompleto',
+        'not_found': '❓ Endereço não encontrado',
+      };
+
+      body.innerHTML = `
+        <div style="margin-bottom:1rem;padding:0.8rem 1rem;background:var(--cream);border-radius:5px;font-size:0.85rem;">
+          <strong>Total de falhas: ${r.total}</strong>
+          <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.6rem;">
+            ${Object.entries(r.resumo).map(([k, v]) => `
+              <div style="background:#fff;padding:0.4rem 0.7rem;border-radius:4px;border-left:3px solid #f97316;">
+                <div style="font-size:0.75rem;color:var(--muted);">${labelsMotivo[k] || k}</div>
+                <div style="font-weight:700;color:var(--navy);">${v}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;font-size:0.8rem;">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Nome</th>
+                <th>Endereço cadastrado</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${r.registros.slice(0, 100).map(reg => `
+                <tr>
+                  <td style="font-size:0.72rem;">${reg.tipo === 'eleitor' ? '👤' : '⭐'}</td>
+                  <td><strong>${esc(reg.nome)}</strong></td>
+                  <td style="font-size:0.78rem;color:#4b5563;">${esc(reg.endereco_completo || '(vazio)')}</td>
+                  <td>
+                    <div style="font-size:0.78rem;font-weight:600;color:#dc2626;">${esc(reg.motivo_label)}</div>
+                    <div style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;">💡 ${esc(reg.sugestao)}</div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          ${r.registros.length > 100 ? `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:0.85rem;">+ ${r.registros.length - 100} registros adicionais não mostrados</div>` : ''}
+        </div>
+      `;
+    } catch (err) {
+      body.innerHTML = `<div style="padding:2rem;color:var(--danger);">Erro: ${esc(err.message)}</div>`;
+    }
+  }
+
+  async function geocodePendentes() {
+    try {
+      const r = await window.API.post('/mapa/geocode-pendentes', {});
+      window.showToast?.(r.message || `Processando ${r.scheduled} registros…`, 'success');
+      setTimeout(async () => { await loadStats(); await loadPoints(); }, 2000);
+    } catch (err) {
+      window.showToast?.('Erro: ' + err.message, 'error');
+    }
+  }
+
   function iniciarPolling() {
     pararPolling();
     pollingInterval = setInterval(async () => {
-      // Só atualiza se a view do mapa estiver visível
       const view = document.getElementById('view-mapa');
       if (!view || getComputedStyle(view).display === 'none') return;
       await loadStats();
@@ -309,14 +414,19 @@
     if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
   }
 
-  /* ═══════════════════════════════════════════════
-     LISTENERS
-  ═══════════════════════════════════════════════ */
   function bindListeners() {
     document.getElementById('btn-map-refresh')?.addEventListener('click', async () => {
       await loadStats(); await loadPoints();
     });
     document.getElementById('btn-map-geocode-pendentes')?.addEventListener('click', geocodePendentes);
+
+    // Clique no número de falhas abre o modal
+    document.getElementById('map-stat-e-failed')?.addEventListener('click', abrirModalFalhas);
+    document.getElementById('map-stat-l-failed')?.addEventListener('click', abrirModalFalhas);
+
+    // Botão dedicado "Ver falhas" (se existir)
+    document.getElementById('btn-map-ver-falhas')?.addEventListener('click', abrirModalFalhas);
+
     document.getElementById('map-filter-tipo')?.addEventListener('change', loadPoints);
     document.getElementById('map-filter-bairro')?.addEventListener('change', loadPoints);
     document.getElementById('map-filter-cidade')?.addEventListener('change', loadPoints);
@@ -331,7 +441,6 @@
       loadPoints();
     });
 
-    // Toggles
     document.getElementById('map-toggle-heatmap')?.addEventListener('change', (ev) => {
       mostrarHeatmap = ev.target.checked;
       renderPoints();
@@ -342,11 +451,7 @@
     });
   }
 
-  /* ═══════════════════════════════════════════════
-     OPEN
-  ═══════════════════════════════════════════════ */
   async function openMap() {
-    if (typeof window.switchView === 'function') window.switchView('mapa');
     setTimeout(async () => {
       ensureMap();
       if (map) map.invalidateSize();
@@ -356,9 +461,13 @@
       await populateLiderancasDropdown();
       bindListeners();
       iniciarPolling();
+      // Auto-geocodifica em segundo plano se houver pendentes
+      autoGeocode();
     }, 200);
   }
 
-  window.GEMapa = { openMap, loadPoints, loadStats, pararPolling };
+  window.GEMapa = { openMap, loadPoints, loadStats, pararPolling, abrirModalFalhas };
+
+  console.log('[MAPA v7] Módulo carregado.');
 
 })();
