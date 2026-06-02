@@ -318,12 +318,15 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   }
 });
 
-document.getElementById('logout-btn')?.addEventListener('click', async () => {
+// Logout via nova sidebar (chamado pelo botão "Sair" da sidebar)
+window.logout = async function() {
   if (!confirm('Deseja realmente sair?')) return;
   await API.post('/auth/logout', {}).catch(() => {});
   clearSession();
   showLogin();
-});
+};
+
+
 
 /* ============================================================
    NAVEGAÇÃO
