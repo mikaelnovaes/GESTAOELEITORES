@@ -34,6 +34,7 @@ const agendaRoutes     = require('./routes/agenda-route');
 const dashboardRoutes  = require('./routes/dashboard-route');
 const disparoRoutes    = require('./routes/disparo-route');
 const etiquetasRoutes  = require('./routes/etiquetas-route');
+const bairrosRoutes    = require('./routes/bairros-route');
 
 
 const { authMiddleware } = require('./middleware/auth');
