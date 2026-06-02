@@ -1,0 +1,81 @@
+/**
+ * frontend/css/layout-fix.css
+ * Correção de scroll e layout para zoom 100%
+ *
+ * PROBLEMA: O <main> crescia junto com o conteúdo, ignorando a altura do wrapper.
+ * Em telas pequenas/zoom alto, o conteúdo do dashboard vazava pra baixo sem scroll.
+ *
+ * SOLUÇÃO: Forçar altura do main em 100% do viewport (- navbar) e overflow-y auto.
+ */
+
+/* ── App wrapper ocupa 100% da viewport ── */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* documento não rola — quem rola é o main */
+}
+
+.app-wrapper.show {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Navbar tem altura fixa (52px desktop, 48px mobile) ── */
+.app-wrapper.show > .navbar-top {
+  flex-shrink: 0;
+}
+
+/* ── Main ocupa o restante e rola sozinho ── */
+.app-wrapper.show > main,
+.app-wrapper.show > #main-content {
+  flex: 1;
+  min-height: 0; /* CRÍTICO: permite que o flex-item encolha */
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  padding-top: 1rem !important; /* navbar já foi descontada do flex */
+  padding-bottom: 2rem !important;
+  /* compensar navbar fixed só se ela ainda for position:fixed */
+}
+
+/* Se a navbar for position:fixed (CSS antigo), restaura padding-top */
+@supports not (display: flex) {
+  .app-wrapper.show > main {
+    padding-top: 64px !important;
+  }
+}
+
+/* ── Scrollbar discreta no main ── */
+.app-wrapper.show > main::-webkit-scrollbar {
+  width: 10px;
+}
+.app-wrapper.show > main::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 10px;
+}
+.app-wrapper.show > main::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.25);
+}
+
+/* ── Cada view ocupa espaço normal dentro do main ── */
+.view {
+  padding: 0 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ── Mobile ── */
+@media (max-width: 900px) {
+  .view { padding: 0 0.6rem; }
+}
+
+/* ── Banner de acting tenant não atrapalha o flex ── */
+#acting-banner {
+  flex-shrink: 0;
+}
