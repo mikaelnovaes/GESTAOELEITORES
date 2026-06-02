@@ -141,6 +141,7 @@ window.API = API;
    SESSÃO JWT
    ============================================================ */
 let currentUser = null;
+window.currentUser = currentUser; // exposto para a sidebar
 
 function saveSession(token, user) {
   sessionStorage.setItem('ge_jwt_token', token);
@@ -229,8 +230,10 @@ function showApp(user) {
     el.style.display = isPrivileged ? '' : 'none';
   });
 
-  renderActingBanner();
-  switchView('dashboard');
+renderActingBanner();
+window.currentUser = currentUser;
+window.dispatchEvent(new CustomEvent('ge:user-changed'));
+switchView('dashboard');
 }
 
 function renderActingBanner() {
