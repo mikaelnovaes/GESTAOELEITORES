@@ -589,6 +589,7 @@ html, body {
 
 @media (max-width: 900px) {
   .app-sidebar {
+    display: flex !important;          /* ← LINHA NOVA */
     position: fixed;
     left: -100%;
     top: 0;
@@ -655,5 +656,32 @@ html, body {
 @media (min-width: 901px) {
   #sb-mobile-toggle {
     display: none !important;
+  }
+}
+/* ════════════════════════════════════════════════════════════
+   FIX ESPECIFICIDADE — força sidebar a aparecer em mobile
+   (vence qualquer regra antiga do styles.css)
+   ════════════════════════════════════════════════════════════ */
+body .app-wrapper.show aside.app-sidebar,
+body .app-wrapper.show .app-sidebar {
+  display: flex !important;
+}
+
+@media (max-width: 900px) {
+  body .app-wrapper.show aside.app-sidebar,
+  body .app-wrapper.show .app-sidebar {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 110 !important;
+  }
+  body .app-wrapper.show aside.app-sidebar:not(.expanded),
+  body .app-wrapper.show .app-sidebar:not(.expanded) {
+    left: -100% !important;
+  }
+  body .app-wrapper.show aside.app-sidebar.expanded,
+  body .app-wrapper.show .app-sidebar.expanded {
+    left: 0 !important;
   }
 }
