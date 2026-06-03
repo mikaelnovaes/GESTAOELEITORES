@@ -738,16 +738,23 @@ body .app-wrapper.show > #main-content {
 }
 
 /* ════════════════════════════════════════════════════════════
-   SIDEBAR FIX FINAL — adicione TUDO ISTO no FINAL do sidebar.css
+   SIDEBAR — FIX FINAL CONSOLIDADO
    ════════════════════════════════════════════════════════════
-   Resolve:
-   1. min-width: 240px herdado de styles.css antigo
-   2. Mobile drawer que escondia sidebar em janelas < 900px
-   3. Badge muito pequeno (8px) no estado recolhido
-   4. Main content não usava espaço quando sidebar recolhia
+   Resolve TUDO:
+   1. Sidebar lateral em qualquer largura (não vira drawer)
+   2. Recolhida = 64px (dá mais espaço pro main)
+   3. Expandida = 240px
+   4. Badge "1" visível e legível no Eleitores
+   5. Submenus inline expandem para LARGURA TOTAL (não cortam textos)
+   6. Subitens em 1 linha cada
+
+   COMO USAR:
+   - Adicione este bloco no FINAL do arquivo frontend/css/sidebar.css
+   - NÃO substitua nada — só adicione no final
+   - As regras vencem por especificidade alta + !important
 */
 
-/* ── 1. SIDEBAR SEMPRE LATERAL (em QUALQUER tamanho de janela) ── */
+/* ── 1. SIDEBAR SEMPRE LATERAL ── */
 body .app-wrapper.show .app-sidebar {
   min-width: 0 !important;
   max-width: none !important;
@@ -769,13 +776,13 @@ body .app-wrapper.show .app-sidebar.expanded {
   width: 240px !important;
 }
 
-/* ── 3. Esconde botão hamburguer e overlay (não usamos drawer) ── */
+/* ── 3. Esconde botão hamburguer e overlay ── */
 #sb-mobile-toggle,
 #sb-overlay {
   display: none !important;
 }
 
-/* ── 4. No estado recolhido, esconde textos/buscas/etc ── */
+/* ── 4. No recolhido: esconde texto/buscas/labels ── */
 body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-text,
 body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-chevron,
 body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logo-text,
@@ -786,7 +793,7 @@ body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logout {
   display: none !important;
 }
 
-/* ── 5. MAIN usa o espaço restante ── */
+/* ── 5. MAIN usa todo o espaço restante ── */
 body .app-wrapper.show > main,
 body .app-wrapper.show > #main-content {
   flex: 1 1 auto !important;
@@ -794,7 +801,7 @@ body .app-wrapper.show > #main-content {
   margin-left: 0 !important;
 }
 
-/* ── 6. BADGE no recolhido: maior e mais legível (18×18, fonte 10px) ── */
+/* ── 6. BADGE no recolhido: maior e legível ── */
 body .app-wrapper.show .app-sidebar:not(.expanded) .sb-badge {
   position: absolute !important;
   top: 2px !important;
@@ -826,3 +833,41 @@ body .app-wrapper.show .app-sidebar.expanded .sb-badge {
   border: none !important;
 }
 
+/* ════════════════════════════════════════════════════════════
+   8. SUBMENUS — CRÍTICO!
+   .sb-item tem display:flex (horizontal por padrão).
+   Quando expandido + tem submenu, precisa virar flex-direction:column
+   pra submenu ocupar largura total. Senão o <ul> só pega largura do
+   conteúdo (~90px) e textos longos quebram em 3 linhas.
+   ════════════════════════════════════════════════════════════ */
+
+/* .sb-item empilha verticalmente no estado expandido */
+body .app-wrapper.show .app-sidebar.expanded .sb-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+/* Submenu ocupa LARGURA TOTAL */
+body .app-wrapper.show .app-sidebar.expanded .sb-item .sb-submenu {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  list-style: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Subitens: 1 linha cada, padding correto */
+body .app-wrapper.show .app-sidebar.expanded .sb-item .sb-submenu .sb-subitem {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: auto !important;
+  padding: 7px 16px 7px 48px !important;
+  margin: 0 8px !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  min-height: 30px !important;
+  box-sizing: border-box !important;
+}
