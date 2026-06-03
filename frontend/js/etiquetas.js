@@ -1,6 +1,10 @@
 /**
- * frontend/js/etiquetas.js  (v3 — com pré-visualização interna + histórico PDF)
- * Fluxo: configura → PRÉ-VISUALIZA dentro do sistema → confirma → imprime
+ * frontend/js/etiquetas.js (v5 — fix HTTP 400 no Gerar PDF)
+ *
+ * MUDANÇA vs v4:
+ *  - prepararPreview() agora PAGINA em chunks de 200 (era pageSize=500 que estourava)
+ *  - Backend rejeita pageSize > 200 → loop com page=1,2,3,...
+ *  - Mostra progresso "Carregando 200/1738..." pro usuário
  */
 
 'use strict';
@@ -37,7 +41,6 @@
     },
   };
 
-  // Estado da geração atual
   let estadoAtual = {
     eleitores: [],
     cfg: null,
@@ -73,7 +76,8 @@
   }
 
   /* ════════════════════════════════════════════════
-     2) PRÉ-VISUALIZAR
+     2) PRÉ-VISUALIZAR — PAGINA em chunks de 200
+        (Fix do erro HTTP 400: backend rejeita pageSize > 200)
   ════════════════════════════════════════════════ */
   async function prepararPreview() {
     const tamanho = document.getElementById('etq-tamanho')?.value;
@@ -83,16 +87,52 @@
     const cfg = TAMANHOS[tamanho];
     if (!cfg) { window.showToast?.('Tamanho inválido.', 'error'); return; }
 
-    try {
-      const qs = new URLSearchParams();
-      if (escopo === 'filtrados') {
-        if (filtroBairro) qs.set('bairro', filtroBairro);
-        if (filtroCidade) qs.set('cidade', filtroCidade);
-      }
-      qs.set('pageSize', '500');
+    const btnGerar = document.getElementById('btn-etq-gerar');
+    const textoOriginalBtn = btnGerar?.textContent;
 
-      const resp = await window.API.get('/eleitores?' + qs.toString());
-      const eleitores = resp.data || [];
+    try {
+      // Pagina em chunks de 200 (limite do backend)
+      const eleitores = [];
+      const PAGE_SIZE = 200;
+      let page = 1;
+      let totalEsperado = 0;
+
+      while (true) {
+        const qs = new URLSearchParams();
+        if (escopo === 'filtrados') {
+          if (filtroBairro) qs.set('bairro', filtroBairro);
+          if (filtroCidade) qs.set('cidade', filtroCidade);
+        }
+        qs.set('pageSize', String(PAGE_SIZE));
+        qs.set('page', String(page));
+
+        const resp = await window.API.get('/eleitores?' + qs.toString());
+        const lote = Array.isArray(resp.data) ? resp.data : (Array.isArray(resp) ? resp : []);
+
+        if (page === 1 && resp.total) {
+          totalEsperado = resp.total;
+        }
+
+        eleitores.push(...lote);
+
+        // Feedback visual durante carregamento
+        if (btnGerar) {
+          btnGerar.disabled = true;
+          btnGerar.textContent = `⏳ Carregando ${eleitores.length}${totalEsperado ? '/' + totalEsperado : ''}...`;
+        }
+
+        // Para se já trouxe tudo ou se o backend retornou menos que o pageSize
+        if (lote.length < PAGE_SIZE) break;
+        // Segurança: nunca passa de 50 páginas (= 10000 eleitores)
+        if (page >= 50) break;
+        page++;
+      }
+
+      if (btnGerar) {
+        btnGerar.disabled = false;
+        btnGerar.textContent = textoOriginalBtn || '📄 Gerar PDF';
+      }
+
       if (!eleitores.length) {
         window.showToast?.('Nenhum eleitor encontrado.', 'error');
         return;
@@ -103,6 +143,10 @@
       document.getElementById('modal-etiquetas')?.classList.remove('show');
       renderPreviewCompleta();
     } catch (err) {
+      if (btnGerar) {
+        btnGerar.disabled = false;
+        btnGerar.textContent = textoOriginalBtn || '📄 Gerar PDF';
+      }
       window.showToast?.('Erro: ' + err.message, 'error');
     }
   }
@@ -299,9 +343,6 @@ ${folhas.map(renderFolha).join('')}
      5) HISTÓRICO + REIMPRESSÃO COMO PDF
   ════════════════════════════════════════════════ */
   async function openHistorico() {
-    if (typeof window.switchView === 'function') {
-      // Guard interna do switchView vai prevenir recursão
-    }
     await renderHistorico();
   }
 
@@ -379,9 +420,6 @@ ${folhas.map(renderFolha).join('')}
     }
   }
 
-  /* ════════════════════════════════════════════════
-     6) VISUALIZAR HISTÓRICO COMO PDF (nova aba)
-  ════════════════════════════════════════════════ */
   async function visualizarComoPDF(id) {
     try {
       window.showToast?.('Gerando visualização…', 'info');
@@ -393,14 +431,12 @@ ${folhas.map(renderFolha).join('')}
         return;
       }
 
-      // Abre em nova aba como visualização (não imprime automaticamente)
       const html = construirHTMLImpressao(det.eleitores, cfg)
         .replace('w.print()', '/* manual */');
 
       const dataHora = new Date(det.criado_em).toLocaleString('pt-BR');
       const titulo = `Etiquetas geradas em ${dataHora}`;
 
-      // Adiciona header informativo + botão de imprimir
       const htmlComHeader = html.replace('<body>', `<body>
         <div class="info-bar" style="background:#1e2a4a;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;">
           <div style="font-family:Arial;">
@@ -433,19 +469,16 @@ ${folhas.map(renderFolha).join('')}
   }
 
   function init() {
-    // BOTÃO "Abrir gerador" na view de etiquetas-gerar
     const btnAbrirGerador = document.getElementById('btn-abrir-modal-etiquetas');
     if (btnAbrirGerador) {
       btnAbrirGerador.addEventListener('click', abrirGerar);
     }
 
-    // Modal "Gerar"
     document.getElementById('btn-etq-gerar')?.addEventListener('click', prepararPreview);
     document.querySelectorAll('[data-close="modal-etiquetas"]').forEach(btn =>
       btn.addEventListener('click', () => document.getElementById('modal-etiquetas')?.classList.remove('show'))
     );
 
-    // Modal "Preview completa"
     document.getElementById('btn-etq-preview-confirmar')?.addEventListener('click', confirmarImpressao);
     document.getElementById('btn-etq-preview-voltar')?.addEventListener('click', voltarEditar);
     document.querySelectorAll('[data-close="modal-etq-preview-full"]').forEach(btn =>
@@ -459,13 +492,12 @@ ${folhas.map(renderFolha).join('')}
     init();
   }
 
-  // EXPORTA explicitamente
   window.GEEtiquetas = {
     abrirGerar,
     openHistorico,
     visualizarComoPDF
   };
 
-  console.log('[ETIQUETAS v3] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
+  console.log('[ETIQUETAS v5] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
 
 })();
