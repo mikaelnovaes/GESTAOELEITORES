@@ -637,3 +637,14 @@ html, body {
 .app-wrapper.show textarea {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
 }
+
+/* ════════════════════════════════════════════════════════════
+   FIX MOBILE TOGGLE — o botão fica no body (não no wrapper)
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  #sb-mobile-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
