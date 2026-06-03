@@ -639,12 +639,21 @@ html, body {
 }
 
 /* ════════════════════════════════════════════════════════════
-   FIX MOBILE TOGGLE — o botão fica no body (não no wrapper)
+   FIX MOBILE TOGGLE — botão ☰ fica fora do app-wrapper
    ════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
   #sb-mobile-toggle {
     display: flex !important;
     align-items: center;
     justify-content: center;
+  }
+  .app-sidebar {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 901px) {
+  #sb-mobile-toggle {
+    display: none !important;
   }
 }
