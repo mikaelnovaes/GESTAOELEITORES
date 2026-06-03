@@ -1,10 +1,11 @@
 /**
- * frontend/js/etiquetas.js (v5 — fix HTTP 400 no Gerar PDF)
+ * frontend/js/etiquetas.js (v6 — alinhamento + fonte do nome +2pt)
  *
- * MUDANÇA vs v4:
- *  - prepararPreview() agora PAGINA em chunks de 200 (era pageSize=500 que estourava)
- *  - Backend rejeita pageSize > 200 → loop com page=1,2,3,...
- *  - Mostra progresso "Carregando 200/1738..." pro usuário
+ * NOVO vs v5:
+ *  - Opção de alinhamento: Esquerda / Centro / Direita
+ *  - Fonte do NOME aumentada em +2pt (era +1pt sobre o corpo)
+ *  - Alinhamento aplicado em todos os campos (nome, endereço, bairro, CEP)
+ *  - Pré-visualização REAL com o alinhamento selecionado
  */
 
 'use strict';
@@ -48,10 +49,12 @@
     escopo: 'todos',
     filtroBairro: '',
     filtroCidade: '',
+    alinhamento: 'left',
   };
 
   /* ════════════════════════════════════════════════
      1) ABRIR MODAL DE GERAR
+     - Injeta o seletor de alinhamento se ainda não tem
   ════════════════════════════════════════════════ */
   function abrirGerar() {
     const modal = document.getElementById('modal-etiquetas');
@@ -60,6 +63,10 @@
       window.showToast?.('Erro: modal não encontrado.', 'error');
       return;
     }
+
+    // Injeta seletor de alinhamento dinamicamente (não precisa mexer no index.html)
+    injetarSeletorAlinhamento();
+
     modal.classList.add('show');
 
     const sel = document.getElementById('etq-tamanho');
@@ -75,15 +82,84 @@
     }
   }
 
+  function injetarSeletorAlinhamento() {
+    // Se já existe, não duplica
+    if (document.getElementById('etq-alinhamento-group')) return;
+
+    const modal = document.getElementById('modal-etiquetas');
+    if (!modal) return;
+
+    const modalBody = modal.querySelector('.modal-body');
+    if (!modalBody) return;
+
+    // Procura o grupo "Quem incluir" pra inserir antes dele
+    const grupos = modalBody.querySelectorAll('.form-group');
+    let inserirAntesDe = null;
+    grupos.forEach(g => {
+      if (g.textContent.includes('Quem incluir')) inserirAntesDe = g;
+    });
+
+    const novoGrupo = document.createElement('div');
+    novoGrupo.id = 'etq-alinhamento-group';
+    novoGrupo.className = 'form-group';
+    novoGrupo.innerHTML = `
+      <label>Alinhamento do texto na etiqueta</label>
+      <div style="display:flex;gap:0.4rem;margin-top:0.3rem;">
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:0.5rem 0.7rem;border:1px solid #d1d5db;border-radius:5px;cursor:pointer;font-size:0.85rem;background:#fff;transition:all 120ms;" class="etq-align-option">
+          <input type="radio" name="etq-align" value="left" checked style="margin:0;">
+          <span style="font-size:1.1rem;line-height:1;">⬅️</span>
+          <span>Esquerda</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:0.5rem 0.7rem;border:1px solid #d1d5db;border-radius:5px;cursor:pointer;font-size:0.85rem;background:#fff;transition:all 120ms;" class="etq-align-option">
+          <input type="radio" name="etq-align" value="center" style="margin:0;">
+          <span style="font-size:1.1rem;line-height:1;">↔️</span>
+          <span>Centro</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:0.5rem 0.7rem;border:1px solid #d1d5db;border-radius:5px;cursor:pointer;font-size:0.85rem;background:#fff;transition:all 120ms;" class="etq-align-option">
+          <input type="radio" name="etq-align" value="right" style="margin:0;">
+          <span style="font-size:1.1rem;line-height:1;">➡️</span>
+          <span>Direita</span>
+        </label>
+      </div>
+    `;
+
+    if (inserirAntesDe) {
+      modalBody.insertBefore(novoGrupo, inserirAntesDe);
+    } else {
+      modalBody.appendChild(novoGrupo);
+    }
+
+    // Estiliza opção selecionada
+    novoGrupo.querySelectorAll('input[name="etq-align"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        novoGrupo.querySelectorAll('.etq-align-option').forEach(lbl => {
+          const input = lbl.querySelector('input');
+          if (input.checked) {
+            lbl.style.borderColor = '#c9a961';
+            lbl.style.background = '#fef9e7';
+            lbl.style.fontWeight = '600';
+          } else {
+            lbl.style.borderColor = '#d1d5db';
+            lbl.style.background = '#fff';
+            lbl.style.fontWeight = '400';
+          }
+        });
+      });
+    });
+    // Aplica estilo inicial à opção checada
+    const checkedInput = novoGrupo.querySelector('input[name="etq-align"]:checked');
+    if (checkedInput) checkedInput.dispatchEvent(new Event('change'));
+  }
+
   /* ════════════════════════════════════════════════
-     2) PRÉ-VISUALIZAR — PAGINA em chunks de 200
-        (Fix do erro HTTP 400: backend rejeita pageSize > 200)
+     2) PRÉ-VISUALIZAR
   ════════════════════════════════════════════════ */
   async function prepararPreview() {
     const tamanho = document.getElementById('etq-tamanho')?.value;
     const escopo = document.querySelector('input[name="etq-escopo"]:checked')?.value || 'todos';
     const filtroBairro = document.getElementById('etq-filtro-bairro')?.value.trim() || '';
     const filtroCidade = document.getElementById('etq-filtro-cidade')?.value.trim() || '';
+    const alinhamento = document.querySelector('input[name="etq-align"]:checked')?.value || 'left';
     const cfg = TAMANHOS[tamanho];
     if (!cfg) { window.showToast?.('Tamanho inválido.', 'error'); return; }
 
@@ -91,7 +167,6 @@
     const textoOriginalBtn = btnGerar?.textContent;
 
     try {
-      // Pagina em chunks de 200 (limite do backend)
       const eleitores = [];
       const PAGE_SIZE = 200;
       let page = 1;
@@ -109,21 +184,15 @@
         const resp = await window.API.get('/eleitores?' + qs.toString());
         const lote = Array.isArray(resp.data) ? resp.data : (Array.isArray(resp) ? resp : []);
 
-        if (page === 1 && resp.total) {
-          totalEsperado = resp.total;
-        }
-
+        if (page === 1 && resp.total) totalEsperado = resp.total;
         eleitores.push(...lote);
 
-        // Feedback visual durante carregamento
         if (btnGerar) {
           btnGerar.disabled = true;
           btnGerar.textContent = `⏳ Carregando ${eleitores.length}${totalEsperado ? '/' + totalEsperado : ''}...`;
         }
 
-        // Para se já trouxe tudo ou se o backend retornou menos que o pageSize
         if (lote.length < PAGE_SIZE) break;
-        // Segurança: nunca passa de 50 páginas (= 10000 eleitores)
         if (page >= 50) break;
         page++;
       }
@@ -138,7 +207,7 @@
         return;
       }
 
-      estadoAtual = { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade };
+      estadoAtual = { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade, alinhamento };
 
       document.getElementById('modal-etiquetas')?.classList.remove('show');
       renderPreviewCompleta();
@@ -158,14 +227,16 @@
       window.showToast?.('Modal de preview não encontrado no HTML.', 'error');
       return;
     }
-    const { eleitores, cfg } = estadoAtual;
+    const { eleitores, cfg, alinhamento } = estadoAtual;
     const itemsPorFolha = cfg.colunas * cfg.linhas;
     const totalFolhas = Math.ceil(eleitores.length / itemsPorFolha);
 
     const infoEl = document.getElementById('etq-preview-info');
+    const alinhamentoLabel = { left: '⬅️ Esquerda', center: '↔️ Centro', right: '➡️ Direita' }[alinhamento];
     if (infoEl) infoEl.innerHTML = `
       <strong>${eleitores.length}</strong> etiquetas · tamanho <strong>${cfg.nome}</strong>
       · <strong>${totalFolhas}</strong> ${totalFolhas === 1 ? 'folha' : 'folhas'} A4
+      · alinhamento <strong>${alinhamentoLabel}</strong>
     `;
 
     const container = document.getElementById('etq-preview-grid');
@@ -205,9 +276,11 @@
           background: #fafafa;
           overflow: hidden;
           min-height: 50px;
+          text-align: ${alinhamento};
         `;
+        // Nome com +2pt (era +1)
         et.innerHTML = `
-          <div style="font-weight:700;color:#1f2937;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(e.nome || '')}</div>
+          <div style="font-weight:700;color:#1f2937;margin-bottom:2px;font-size:0.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(e.nome || '')}</div>
           ${endLinha ? `<div style="color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(endLinha)}</div>` : ''}
           ${bairroCidade ? `<div style="color:#4b5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(bairroCidade)}</div>` : ''}
           ${cepUF ? `<div style="color:#6b7280;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(cepUF)}</div>` : ''}
@@ -233,10 +306,10 @@
      3) CONFIRMAR E IMPRIMIR
   ════════════════════════════════════════════════ */
   async function confirmarImpressao() {
-    const { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade } = estadoAtual;
+    const { eleitores, cfg, tamanho, escopo, filtroBairro, filtroCidade, alinhamento } = estadoAtual;
     if (!eleitores.length) return;
 
-    const html = construirHTMLImpressao(eleitores, cfg);
+    const html = construirHTMLImpressao(eleitores, cfg, alinhamento);
     const w = window.open('', '_blank');
     if (!w) { window.showToast?.('Permita pop-ups.', 'error'); return; }
     w.document.write(html);
@@ -267,8 +340,10 @@
 
   /* ════════════════════════════════════════════════
      4) HTML DE IMPRESSÃO
+     - text-align aplicado ao container .etiqueta
+     - Fonte do nome aumentada em +2pt (era +1)
   ════════════════════════════════════════════════ */
-  function construirHTMLImpressao(eleitores, cfg) {
+  function construirHTMLImpressao(eleitores, cfg, alinhamento = 'left') {
     const itemsPorFolha = cfg.colunas * cfg.linhas;
     const folhas = [];
     for (let i = 0; i < eleitores.length; i += itemsPorFolha) {
@@ -316,10 +391,15 @@ body { font-family: Arial, sans-serif; background: #fff; color: #000; }
   padding: 2mm 3mm; overflow: hidden;
   font-size: ${cfg.fonte}px; line-height: 1.25;
   display: flex; flex-direction: column; justify-content: center;
+  text-align: ${alinhamento};
 }
 .etiqueta.vazia { visibility: hidden; }
-.etiqueta .nome { font-weight: 700; font-size: ${cfg.fonte + 1}px; margin-bottom: 1mm;
-                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etiqueta .nome {
+  font-weight: 700;
+  font-size: ${cfg.fonte + 2}px;
+  margin-bottom: 1mm;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .etiqueta .end, .etiqueta .bc, .etiqueta .cep {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -340,7 +420,7 @@ ${folhas.map(renderFolha).join('')}
   }
 
   /* ════════════════════════════════════════════════
-     5) HISTÓRICO + REIMPRESSÃO COMO PDF
+     5) HISTÓRICO + VISUALIZAR PDF
   ════════════════════════════════════════════════ */
   async function openHistorico() {
     await renderHistorico();
@@ -431,8 +511,8 @@ ${folhas.map(renderFolha).join('')}
         return;
       }
 
-      const html = construirHTMLImpressao(det.eleitores, cfg)
-        .replace('w.print()', '/* manual */');
+      // Histórico não armazena alinhamento — usa esquerda como padrão
+      const html = construirHTMLImpressao(det.eleitores, cfg, 'left');
 
       const dataHora = new Date(det.criado_em).toLocaleString('pt-BR');
       const titulo = `Etiquetas geradas em ${dataHora}`;
@@ -469,12 +549,9 @@ ${folhas.map(renderFolha).join('')}
   }
 
   function init() {
-    const btnAbrirGerador = document.getElementById('btn-abrir-modal-etiquetas');
-    if (btnAbrirGerador) {
-      btnAbrirGerador.addEventListener('click', abrirGerar);
-    }
-
+    document.getElementById('btn-abrir-modal-etiquetas')?.addEventListener('click', abrirGerar);
     document.getElementById('btn-etq-gerar')?.addEventListener('click', prepararPreview);
+
     document.querySelectorAll('[data-close="modal-etiquetas"]').forEach(btn =>
       btn.addEventListener('click', () => document.getElementById('modal-etiquetas')?.classList.remove('show'))
     );
@@ -492,12 +569,8 @@ ${folhas.map(renderFolha).join('')}
     init();
   }
 
-  window.GEEtiquetas = {
-    abrirGerar,
-    openHistorico,
-    visualizarComoPDF
-  };
+  window.GEEtiquetas = { abrirGerar, openHistorico, visualizarComoPDF };
 
-  console.log('[ETIQUETAS v5] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
+  console.log('[ETIQUETAS v6] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
 
 })();
