@@ -1,9 +1,8 @@
 /* ════════════════════════════════════════════════════════════
-   SIDEBAR RETRÁTIL — Gestão de Eleitores
-   Fonte: Geist (Vercel) — moderna, técnica, ótima legibilidade
+   SIDEBAR RETRÁTIL — Gestão de Eleitores (v3 - limpa)
+   Fonte: Geist (Vercel)
    ════════════════════════════════════════════════════════════ */
 
-/* Garante carregamento da Geist no <head> também via link */
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 /* ── VARIÁVEIS ────────────────────────────────────────────── */
@@ -22,20 +21,11 @@
 }
 
 /* ── ESCONDE TUDO ATÉ O LOGIN ─────────────────────────────── */
-.app-sidebar {
-  display: none;
-}
-.app-wrapper.show .app-sidebar {
-  display: flex;
-}
-
-/* Esconde a navbar antiga + aside antigo */
+.app-sidebar { display: none; }
 .app-wrapper.show > .navbar-top,
-.app-wrapper.show > aside {
-  display: none !important;
-}
+.app-wrapper.show > aside:not(.app-sidebar) { display: none !important; }
 
-/* ── LAYOUT GERAL: html/body/wrapper ─────────────────────── */
+/* ── LAYOUT GERAL ─────────────────────────────────────────── */
 html, body {
   margin: 0;
   padding: 0;
@@ -68,42 +58,40 @@ html, body {
 
 /* Scrollbar customizada no main */
 .app-wrapper.show > main::-webkit-scrollbar,
-.app-wrapper.show > #main-content::-webkit-scrollbar {
-  width: 10px;
-}
+.app-wrapper.show > #main-content::-webkit-scrollbar { width: 10px; }
 .app-wrapper.show > main::-webkit-scrollbar-track,
-.app-wrapper.show > #main-content::-webkit-scrollbar-track {
-  background: transparent;
-}
+.app-wrapper.show > #main-content::-webkit-scrollbar-track { background: transparent; }
 .app-wrapper.show > main::-webkit-scrollbar-thumb,
-.app-wrapper.show > #main-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
-}
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
 .app-wrapper.show > main::-webkit-scrollbar-thumb:hover,
-.app-wrapper.show > #main-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
-}
+.app-wrapper.show > #main-content::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
 /* ════════════════════════════════════════════════════════════
-   SIDEBAR
+   SIDEBAR — sempre lateral, em qualquer largura de janela
    ════════════════════════════════════════════════════════════ */
-.app-sidebar {
+body .app-wrapper.show .app-sidebar {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: var(--sb-width-collapsed);
-  height: 100vh;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  height: 100vh !important;
+  flex-shrink: 0 !important;
+  z-index: auto !important;
   background: var(--sb-bg);
   color: var(--sb-text);
-  transition: width var(--sb-transition);
-  z-index: 100;
-  position: relative;
+  min-width: 0 !important;
+  max-width: none !important;
+  transition: width var(--sb-transition) !important;
 }
 
-.app-sidebar.expanded {
-  width: var(--sb-width-expanded);
-}
+body .app-wrapper.show .app-sidebar:not(.expanded) { width: 64px !important; }
+body .app-wrapper.show .app-sidebar.expanded { width: 240px !important; }
+
+/* Esconde botão hamburguer e overlay mobile (não usamos drawer) */
+#sb-mobile-toggle,
+#sb-overlay { display: none !important; }
 
 /* ── HEADER (logo + botão recolher) ──────────────────────── */
 .sb-header {
@@ -147,7 +135,6 @@ html, body {
   opacity: 0;
   white-space: nowrap;
   transition: opacity 180ms;
-  transition-delay: 0ms;
 }
 .app-sidebar.expanded .sb-logo-text {
   opacity: 1;
@@ -177,14 +164,11 @@ html, body {
   color: #fff;
 }
 
-/* No estado recolhido, o botão fica abaixo do logo (centralizado) */
+/* No recolhido, o botão fica embaixo do logo (centralizado) */
 .app-sidebar:not(.expanded) .sb-header {
   flex-direction: column;
   gap: 8px;
   padding: 12px 8px;
-}
-.app-sidebar:not(.expanded) .sb-logo-text {
-  display: none;
 }
 
 /* ── BUSCA RÁPIDA (só no expandido) ──────────────────────── */
@@ -192,9 +176,8 @@ html, body {
   padding: 10px 12px 4px;
   display: none;
 }
-.app-sidebar.expanded .sb-search {
-  display: block;
-}
+.app-sidebar.expanded .sb-search { display: block; }
+
 .sb-search input {
   width: 100%;
   background: rgba(255, 255, 255, 0.06);
@@ -208,9 +191,7 @@ html, body {
   transition: border-color 120ms;
   box-sizing: border-box;
 }
-.sb-search input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
+.sb-search input::placeholder { color: rgba(255, 255, 255, 0.4); }
 .sb-search input:focus {
   border-color: var(--sb-gold);
   background: rgba(255, 255, 255, 0.08);
@@ -237,16 +218,24 @@ html, body {
   text-transform: uppercase;
   display: none;
 }
-.app-sidebar.expanded .sb-section-label {
-  display: block;
-}
+.app-sidebar.expanded .sb-section-label { display: block; }
 
+/* ── ITEMS DO MENU ─────────────────────────────────────────
+   IMPORTANTE: no expandido, .sb-item é flex COLUMN (empilha
+   o link em cima do submenu). Sem isso, o <ul> do submenu
+   fica do lado e textos longos quebram em várias linhas.
+─────────────────────────────────────────────────────────── */
 .sb-item {
   position: relative;
   display: flex;
   align-items: center;
   cursor: pointer;
   user-select: none;
+}
+
+body .app-wrapper.show .app-sidebar.expanded .sb-item {
+  flex-direction: column !important;
+  align-items: stretch !important;
 }
 
 .sb-item-link {
@@ -273,15 +262,8 @@ html, body {
   letter-spacing: -0.005em;
 }
 
-.sb-item-link:hover {
-  background: var(--sb-bg-hover);
-  color: #fff;
-}
-
-.sb-item.active > .sb-item-link {
-  background: var(--sb-bg-active);
-  color: var(--sb-gold);
-}
+.sb-item-link:hover { background: var(--sb-bg-hover); color: #fff; }
+.sb-item.active > .sb-item-link { background: var(--sb-bg-active); color: var(--sb-gold); }
 
 /* Barra dourada à esquerda quando ativo */
 .sb-item.active::before {
@@ -319,15 +301,18 @@ html, body {
   transform: rotate(180deg);
 }
 
-/* Badge (contador 41) */
+/* ── BADGE (contador "1") ──────────────────────────────────
+   No expandido: aparece à direita do texto.
+   No recolhido: vira indicador sobre o ícone.
+─────────────────────────────────────────────────────────── */
 .sb-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 5px;
-  border-radius: 8px;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
   background: #dc2626;
   color: #fff;
   font-size: 10px;
@@ -340,28 +325,41 @@ html, body {
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* No estado recolhido: esconde texto, badge vira pontinho */
+/* No expandido: badge fica à direita */
+body .app-wrapper.show .app-sidebar.expanded .sb-badge {
+  margin-left: auto !important;
+}
+
+/* No recolhido: badge vira indicador no canto do ícone */
 .app-sidebar:not(.expanded) .sb-item-link {
   padding: 11px 0;
   margin: 1px 10px;
   justify-content: center;
 }
-.app-sidebar:not(.expanded) .sb-item-text,
-.app-sidebar:not(.expanded) .sb-item-chevron {
-  display: none;
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-text,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-chevron,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logo-text,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-search,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-section-label,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-user-info,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logout {
+  display: none !important;
 }
-.app-sidebar:not(.expanded) .sb-badge {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  min-width: 14px;
-  height: 14px;
-  font-size: 8px;
-  padding: 0 4px;
-  border: 1.5px solid var(--sb-bg);
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-badge {
+  position: absolute !important;
+  top: 2px !important;
+  right: 4px !important;
+  min-width: 18px !important;
+  width: auto !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  font-size: 10px !important;
+  border: 2px solid var(--sb-bg) !important;
+  border-radius: 9px !important;
+  z-index: 2 !important;
 }
 
-/* ── SUBMENUS (DROPDOWN flutuante no recolhido / inline no expandido) ── */
+/* ── SUBMENUS (inline no expandido) ──────────────────────── */
 .sb-submenu {
   list-style: none;
   margin: 0;
@@ -374,12 +372,21 @@ html, body {
   max-height: 400px;
 }
 
-.sb-submenu .sb-subitem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 16px 7px 48px;
-  margin: 0 8px;
+body .app-wrapper.show .app-sidebar.expanded .sb-submenu {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+body .app-wrapper.show .app-sidebar.expanded .sb-submenu .sb-subitem {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: auto !important;
+  padding: 7px 16px 7px 48px !important;
+  margin: 0 8px !important;
   border-radius: 5px;
   background: transparent;
   border: none;
@@ -388,10 +395,13 @@ html, body {
   font-size: 12px;
   font-weight: 400;
   cursor: pointer;
-  width: calc(100% - 16px);
   text-align: left;
-  transition: background 120ms, color 120ms;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  min-height: 30px !important;
+  box-sizing: border-box !important;
   letter-spacing: -0.003em;
+  transition: background 120ms, color 120ms;
 }
 .sb-submenu .sb-subitem:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -411,7 +421,7 @@ html, body {
   padding: 6px;
   min-width: 210px;
   max-height: 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   opacity: 0;
   pointer-events: none;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -511,9 +521,8 @@ html, body {
   min-width: 0;
   display: none;
 }
-.app-sidebar.expanded .sb-user-info {
-  display: block;
-}
+.app-sidebar.expanded .sb-user-info { display: block; }
+
 .sb-user-name {
   font-size: 12px;
   font-weight: 600;
@@ -549,325 +558,18 @@ html, body {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.4);
 }
-.app-sidebar.expanded .sb-logout {
-  display: block;
-}
+.app-sidebar.expanded .sb-logout { display: block; }
 
-/* No recolhido, footer só mostra o avatar (centralizado) */
 .app-sidebar:not(.expanded) .sb-footer {
   justify-content: center;
   padding: 12px 8px;
 }
 
-/* ════════════════════════════════════════════════════════════
-   MOBILE — sidebar vira drawer
-   ════════════════════════════════════════════════════════════ */
-.sb-mobile-toggle {
-  display: none;
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 200;
-  width: 36px;
-  height: 36px;
-  background: var(--sb-bg);
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  font-size: 18px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.sb-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 99;
-}
-
-@media (max-width: 900px) {
-  .app-sidebar {
-    display: flex !important;          /* ← LINHA NOVA */
-    position: fixed;
-    left: -100%;
-    top: 0;
-    z-index: 110;
-    width: var(--sb-width-expanded) !important;
-    transition: left var(--sb-transition);
-  }
-  .app-sidebar.expanded {
-    left: 0;
-  }
-  .app-sidebar.expanded ~ .sb-overlay {
-    display: block;
-  }
-  .app-wrapper.show .sb-mobile-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .app-wrapper.show > main,
-  .app-wrapper.show > #main-content {
-    padding-top: 60px !important;
-  }
-  /* No mobile, força o estado expandido sempre (a sidebar abre/fecha por translate) */
-  .app-sidebar .sb-item-text,
-  .app-sidebar .sb-item-chevron,
-  .app-sidebar .sb-logo-text,
-  .app-sidebar .sb-search,
-  .app-sidebar .sb-section-label,
-  .app-sidebar .sb-user-info,
-  .app-sidebar .sb-logout {
-    display: block;
-  }
-  .app-sidebar .sb-item-link {
-    justify-content: flex-start;
-    padding: 9px 16px;
-  }
-}
-
-/* ════════════════════════════════════════════════════════════
-   GLOBAL — fonte Geist em tudo
-   ════════════════════════════════════════════════════════════ */
+/* ── FONTE GEIST GLOBAL ──────────────────────────────────── */
 .app-wrapper.show,
 .app-wrapper.show input,
 .app-wrapper.show button,
 .app-wrapper.show select,
 .app-wrapper.show textarea {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-}
-
-/* ════════════════════════════════════════════════════════════
-   FIX MOBILE TOGGLE — botão ☰ fica fora do app-wrapper
-   ════════════════════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  #sb-mobile-toggle {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-  .app-sidebar {
-    display: flex !important;
-  }
-}
-
-@media (min-width: 901px) {
-  #sb-mobile-toggle {
-    display: none !important;
-  }
-}
-/* ════════════════════════════════════════════════════════════
-   FIX ESPECIFICIDADE — força sidebar a aparecer em mobile
-   (vence qualquer regra antiga do styles.css)
-   ════════════════════════════════════════════════════════════ */
-body .app-wrapper.show aside.app-sidebar,
-body .app-wrapper.show .app-sidebar {
-  display: flex !important;
-}
-
-@media (max-width: 900px) {
-  body .app-wrapper.show aside.app-sidebar,
-  body .app-wrapper.show .app-sidebar {
-    display: flex !important;
-    position: fixed !important;
-    top: 0 !important;
-    height: 100vh !important;
-    z-index: 110 !important;
-  }
-  body .app-wrapper.show aside.app-sidebar:not(.expanded),
-  body .app-wrapper.show .app-sidebar:not(.expanded) {
-    left: -100% !important;
-  }
-  body .app-wrapper.show aside.app-sidebar.expanded,
-  body .app-wrapper.show .app-sidebar.expanded {
-    left: 0 !important;
-  }
-}
-/* ════════════════════════════════════════════════════════════
-   FIX FINAL — sidebar lateral em qualquer largura
-   (vence regras antigas com min-width e mobile drawer)
-   ════════════════════════════════════════════════════════════ */
-
-/* 1. Remove min-width herdado de styles.css antigo */
-body .app-wrapper.show .app-sidebar {
-  min-width: 0 !important;
-  max-width: none !important;
-  display: flex !important;
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-  height: 100vh !important;
-  flex-shrink: 0 !important;
-  z-index: auto !important;
-  transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* 2. Larguras corretas por estado (em QUALQUER largura de janela) */
-body .app-wrapper.show .app-sidebar:not(.expanded) {
-  width: 64px !important;
-}
-body .app-wrapper.show .app-sidebar.expanded {
-  width: 240px !important;
-}
-
-/* 3. Esconde botão hamburguer e overlay (não usamos drawer) */
-#sb-mobile-toggle,
-#sb-overlay {
-  display: none !important;
-}
-
-/* 4. No recolhido, esconde texto/badges/busca */
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-text,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-chevron,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logo-text,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-search,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-section-label,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-user-info,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logout {
-  display: none !important;
-}
-
-/* 5. Main usa o espaço restante */
-body .app-wrapper.show > main,
-body .app-wrapper.show > #main-content {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  margin-left: 0 !important;
-}
-
-/* ════════════════════════════════════════════════════════════
-   SIDEBAR — FIX FINAL CONSOLIDADO
-   ════════════════════════════════════════════════════════════
-   Resolve TUDO:
-   1. Sidebar lateral em qualquer largura (não vira drawer)
-   2. Recolhida = 64px (dá mais espaço pro main)
-   3. Expandida = 240px
-   4. Badge "1" visível e legível no Eleitores
-   5. Submenus inline expandem para LARGURA TOTAL (não cortam textos)
-   6. Subitens em 1 linha cada
-
-   COMO USAR:
-   - Adicione este bloco no FINAL do arquivo frontend/css/sidebar.css
-   - NÃO substitua nada — só adicione no final
-   - As regras vencem por especificidade alta + !important
-*/
-
-/* ── 1. SIDEBAR SEMPRE LATERAL ── */
-body .app-wrapper.show .app-sidebar {
-  min-width: 0 !important;
-  max-width: none !important;
-  display: flex !important;
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-  height: 100vh !important;
-  flex-shrink: 0 !important;
-  z-index: auto !important;
-  transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* ── 2. LARGURAS POR ESTADO ── */
-body .app-wrapper.show .app-sidebar:not(.expanded) {
-  width: 64px !important;
-}
-body .app-wrapper.show .app-sidebar.expanded {
-  width: 240px !important;
-}
-
-/* ── 3. Esconde botão hamburguer e overlay ── */
-#sb-mobile-toggle,
-#sb-overlay {
-  display: none !important;
-}
-
-/* ── 4. No recolhido: esconde texto/buscas/labels ── */
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-text,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-chevron,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logo-text,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-search,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-section-label,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-user-info,
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logout {
-  display: none !important;
-}
-
-/* ── 5. MAIN usa todo o espaço restante ── */
-body .app-wrapper.show > main,
-body .app-wrapper.show > #main-content {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  margin-left: 0 !important;
-}
-
-/* ── 6. BADGE no recolhido: maior e legível ── */
-body .app-wrapper.show .app-sidebar:not(.expanded) .sb-badge {
-  position: absolute !important;
-  top: 2px !important;
-  right: 4px !important;
-  min-width: 18px !important;
-  width: auto !important;
-  height: 18px !important;
-  padding: 0 5px !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  border: 2px solid var(--sb-bg) !important;
-  border-radius: 9px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  z-index: 2 !important;
-}
-
-/* ── 7. BADGE no expandido: aparece à direita do texto ── */
-body .app-wrapper.show .app-sidebar.expanded .sb-badge {
-  position: static !important;
-  margin-left: auto !important;
-  min-width: 22px !important;
-  height: 18px !important;
-  font-size: 10px !important;
-  padding: 0 6px !important;
-  border-radius: 9px !important;
-  border: none !important;
-}
-
-/* ════════════════════════════════════════════════════════════
-   8. SUBMENUS — CRÍTICO!
-   .sb-item tem display:flex (horizontal por padrão).
-   Quando expandido + tem submenu, precisa virar flex-direction:column
-   pra submenu ocupar largura total. Senão o <ul> só pega largura do
-   conteúdo (~90px) e textos longos quebram em 3 linhas.
-   ════════════════════════════════════════════════════════════ */
-
-/* .sb-item empilha verticalmente no estado expandido */
-body .app-wrapper.show .app-sidebar.expanded .sb-item {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-}
-
-/* Submenu ocupa LARGURA TOTAL */
-body .app-wrapper.show .app-sidebar.expanded .sb-item .sb-submenu {
-  width: 100% !important;
-  min-width: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  list-style: none !important;
-  box-sizing: border-box !important;
-}
-
-/* Subitens: 1 linha cada, padding correto */
-body .app-wrapper.show .app-sidebar.expanded .sb-item .sb-submenu .sb-subitem {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: auto !important;
-  padding: 7px 16px 7px 48px !important;
-  margin: 0 8px !important;
-  white-space: normal !important;
-  line-height: 1.3 !important;
-  min-height: 30px !important;
-  box-sizing: border-box !important;
 }
