@@ -685,3 +685,54 @@ body .app-wrapper.show .app-sidebar {
     left: 0 !important;
   }
 }
+/* ════════════════════════════════════════════════════════════
+   FIX FINAL — sidebar lateral em qualquer largura
+   (vence regras antigas com min-width e mobile drawer)
+   ════════════════════════════════════════════════════════════ */
+
+/* 1. Remove min-width herdado de styles.css antigo */
+body .app-wrapper.show .app-sidebar {
+  min-width: 0 !important;
+  max-width: none !important;
+  display: flex !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  height: 100vh !important;
+  flex-shrink: 0 !important;
+  z-index: auto !important;
+  transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 2. Larguras corretas por estado (em QUALQUER largura de janela) */
+body .app-wrapper.show .app-sidebar:not(.expanded) {
+  width: 64px !important;
+}
+body .app-wrapper.show .app-sidebar.expanded {
+  width: 240px !important;
+}
+
+/* 3. Esconde botão hamburguer e overlay (não usamos drawer) */
+#sb-mobile-toggle,
+#sb-overlay {
+  display: none !important;
+}
+
+/* 4. No recolhido, esconde texto/badges/busca */
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-text,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-item-chevron,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logo-text,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-search,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-section-label,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-user-info,
+body .app-wrapper.show .app-sidebar:not(.expanded) .sb-logout {
+  display: none !important;
+}
+
+/* 5. Main usa o espaço restante */
+body .app-wrapper.show > main,
+body .app-wrapper.show > #main-content {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin-left: 0 !important;
+}
