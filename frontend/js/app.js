@@ -460,28 +460,39 @@ function renderList() {
   }
 
   listContainer.innerHTML = `
-    <table>
-      <thead>
-        <tr><th style="width:60px"></th><th>Nome Completo</th><th>Endereço, Nº — Bairro</th><th>Telefone</th><th style="text-align:right">Ações</th></tr>
-      </thead>
-      <tbody>
-        ${sorted.map(e => {
-          const endereco = [[e.endereco, e.numero].filter(Boolean).join(', '), e.bairro].filter(Boolean).join(' — ') || '—';
-          return `
-            <tr>
-              <td>${e.foto_url ? `<img class="row-photo" src="${escapeHtml(e.foto_url)}" alt="">` : `<div class="row-photo-placeholder">${escapeHtml((e.nome[0] || '?').toUpperCase())}</div>`}</td>
-              <td><div class="row-name">${escapeHtml(e.nome)}</div><div class="row-meta">${escapeHtml(e.cidade || '—')}</div></td>
-              <td>${escapeHtml(endereco)}</td>
-              <td>${escapeHtml(e.telefone || '—')}</td>
-              <td><div class="actions-cell">
-                <button class="icon-btn" data-act="view"   data-id="${e.id}">Ver</button>
-                <button class="icon-btn" data-act="edit"   data-id="${e.id}">Editar</button>
-                <button class="icon-btn danger" data-act="delete" data-id="${e.id}">Excluir</button>
-              </div></td>
-            </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
+  <table>
+    <thead>
+      <tr>
+        <th style="width:60px"></th>
+        <th>Nome Completo</th>
+        <th>Endereço, Nº — Bairro</th>
+        <th>Cidade</th>
+        <th>Telefone</th>
+        <th style="text-align:right">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sorted.map(e => {
+        const endereco = [[e.endereco, e.numero].filter(Boolean).join(', '), e.bairro].filter(Boolean).join(' — ') || '—';
+        const cidade = e.cidade && e.cidade.trim()
+          ? escapeHtml(e.cidade)
+          : '<span style="color:var(--warning);font-size:0.78rem;">⚠ Sem cidade</span>';
+        return `
+          <tr>
+            <td>${e.foto_url ? `<img class="row-photo" src="${escapeHtml(e.foto_url)}" alt="">` : `<div class="row-photo-placeholder">${escapeHtml((e.nome[0] || '?').toUpperCase())}</div>`}</td>
+            <td><div class="row-name">${escapeHtml(e.nome)}</div><div class="row-meta">${escapeHtml(e.cidade || '—')}</div></td>
+            <td>${escapeHtml(endereco)}</td>
+            <td>${cidade}</td>
+            <td>${escapeHtml(e.telefone || '—')}</td>
+            <td><div class="actions-cell">
+              <button class="icon-btn" data-act="view"   data-id="${e.id}">Ver</button>
+              <button class="icon-btn" data-act="edit"   data-id="${e.id}">Editar</button>
+              <button class="icon-btn danger" data-act="delete" data-id="${e.id}">Excluir</button>
+            </div></td>
+          </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
 
   listContainer.querySelectorAll('[data-act]').forEach(btn => {
     btn.addEventListener('click', () => {
