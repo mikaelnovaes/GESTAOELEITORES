@@ -31,16 +31,17 @@
       label: 'Dashboard',
       tip: 'Visão geral analítica',
     },
-    {
+{
       icon: '👥',
       label: 'Eleitores',
       tip: 'Cadastros e padronização',
-      badgeKey: 'bairros_pendentes', // dinâmico
+      badgeKey: 'pendencias_eleitores', // soma bairros + cidades pendentes
       subitems: [
         { view: 'list', label: 'Todos os Eleitores', badgeKey: 'total_eleitores' },
         { view: 'new', label: '+ Novo Cadastro' },
         { view: 'import', label: 'Importar Excel' },
         { view: 'verificar-bairros', label: '🔍 Verificar Bairros', badgeKey: 'bairros_pendentes' },
+        { view: 'verificar-cidades', label: '🏙️ Verificar Cidades', badgeKey: 'cidades_pendentes' },
         { divider: true },
         { view: 'reports', label: 'Relatórios' },
       ],
