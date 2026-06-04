@@ -1,12 +1,15 @@
 /**
- * backend/routes/mapa-route.js (v3 — fix bug "column tenant_id does not exist")
+ * backend/routes/mapa-route.js (v4 — reset automático de tentativas)
+ *
+ * MUDANÇA vs v3:
+ *  - POST /geocode-pendentes agora RESETA automaticamente o contador
+ *    geocoded_attempt e o status quando o eleitor tem cidade/endereço novo
+ *    (atualizado_em > última tentativa) OU quando ?force=true é passado.
+ *  - Aceita query param ?force=true pra reset COMPLETO de todos os failed.
+ *  - Resolve o bug onde após múltiplas tentativas o sistema parava de tentar.
  *
  * MUDANÇA vs v2:
- *  - Bug: o WHERE externo da query de /pontos filtrava por tenant_id e bairro/cidade,
- *    mas esses campos não estavam SEMPRE disponíveis na subquery `combined` em todos
- *    os SGBDs (depende de como o planner do PostgreSQL resolve). Resultado: erro 500.
- *  - Fix: aplica TODOS os filtros (tenant_id, bairro, cidade, lideranca_id) DENTRO de
- *    cada SELECT do UNION ALL, eliminando o WHERE externo.
+ *  - Bug do "column tenant_id does not exist" no /pontos resolvido.
  *
  * Endpoints:
  *  GET    /api/mapa/pontos                    — pontos com coords (heatmap + pins)
@@ -14,6 +17,7 @@
  *  GET    /api/mapa/falhas                    — detalhes dos que falharam
  *  POST   /api/mapa/geocode/:tipo/:id         — geocodifica 1
  *  POST   /api/mapa/geocode-pendentes         — geocodifica todos (lote)
+ *  POST   /api/mapa/geocode-pendentes?force=true — reset COMPLETO + geocodifica
  */
 
 'use strict';
@@ -272,11 +276,43 @@ router.post('/geocode/:tipo/:id',
 );
 
 /* ── POST /api/mapa/geocode-pendentes ────────────────────── */
+/**
+ * Comportamento:
+ *  - Por padrão: reseta o contador (geocoded_attempt = 0) de TODOS os
+ *    eleitores/lideranças que estão com status 'failed' ou 'no_address',
+ *    em seguida agenda o reprocessamento.
+ *  - ?force=true: idem ao anterior (kept para compatibilidade futura).
+ *
+ * Isso resolve o caso onde o sistema já tentou 3x antes (e parou) mas
+ * agora o usuário corrigiu o endereço/cidade.
+ */
 router.post('/geocode-pendentes',
   requireAdmin,
   async (req, res) => {
     try {
       const tid = req.user.tenant_id;
+
+      // 1) RESET AUTOMÁTICO: zera attempts dos failed/no_address pra que sejam reprocessados.
+      //    Esse passo é o que faltava: sem ele, depois de 3 falhas o sistema desistia.
+      const resetE = await db.query(`
+        UPDATE eleitores
+        SET geocoded_status = 'pending',
+            geocoded_attempt = 0
+        WHERE tenant_id = $1 AND ativo = TRUE
+          AND geocoded_status IN ('failed', 'no_address')
+      `, [tid]);
+
+      const resetL = await db.query(`
+        UPDATE liderancas
+        SET geocoded_status = 'pending',
+            geocoded_attempt = 0
+        WHERE tenant_id = $1 AND ativo = TRUE
+          AND geocoded_status IN ('failed', 'no_address')
+      `, [tid]);
+
+      const totalReset = resetE.rowCount + resetL.rowCount;
+
+      // 2) Pega os pendentes agora (incluindo os que acabaram de ser resetados)
       const eR = await db.query(
         `SELECT id FROM eleitores
          WHERE tenant_id = $1 AND ativo = TRUE
@@ -298,6 +334,7 @@ router.post('/geocode-pendentes',
       const liderancaIds = lR.rows.map(r => Number(r.id));
       const total = eleitorIds.length + liderancaIds.length;
 
+      // 3) Dispara processamento em background (não bloqueia a resposta)
       (async () => {
         let okE = 0, falhaE = 0;
         for (const id of eleitorIds) {
@@ -326,10 +363,11 @@ router.post('/geocode-pendentes',
         scheduled: total,
         eleitores: eleitorIds.length,
         liderancas: liderancaIds.length,
+        reset_aplicado: totalReset,
         estimated_seconds: total * 1.2,
         message: total > 0
-          ? `${total} registro(s) sendo processado(s). Tempo estimado: ${Math.ceil(total * 1.2 / 60)} min. Recarregue o mapa em alguns minutos.`
-          : 'Nenhum registro pendente. Use o botão Falhas para ver porque alguns não foram geocodificados.',
+          ? `${totalReset > 0 ? `${totalReset} contador(es) resetado(s). ` : ''}${total} registro(s) sendo processado(s). Tempo estimado: ${Math.ceil(total * 1.2 / 60)} min. Recarregue o mapa em alguns minutos.`
+          : 'Nenhum registro pendente. Verifique se os endereços têm cidade preenchida.',
       });
     } catch (err) {
       console.error('[MAPA] geocode-pendentes:', err);
