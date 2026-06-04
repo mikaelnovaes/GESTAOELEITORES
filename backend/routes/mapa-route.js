@@ -1,16 +1,17 @@
 /**
- * backend/routes/mapa-route.js (v2)
+ * backend/routes/mapa-route.js (v3 — fix bug "column tenant_id does not exist")
  *
- * MUDANÇAS vs v1:
- *  - NOVO endpoint GET /falhas — lista eleitores/lideranças com falha de geocodificação
- *    + classifica o motivo (sem cidade, sem endereço, não encontrado, etc)
- *  - POST /geocode-pendentes agora retorna estatística MAIS detalhada
- *  - GET /stats agora separa "failed" entre "no_address" e "not_found"
+ * MUDANÇA vs v2:
+ *  - Bug: o WHERE externo da query de /pontos filtrava por tenant_id e bairro/cidade,
+ *    mas esses campos não estavam SEMPRE disponíveis na subquery `combined` em todos
+ *    os SGBDs (depende de como o planner do PostgreSQL resolve). Resultado: erro 500.
+ *  - Fix: aplica TODOS os filtros (tenant_id, bairro, cidade, lideranca_id) DENTRO de
+ *    cada SELECT do UNION ALL, eliminando o WHERE externo.
  *
  * Endpoints:
  *  GET    /api/mapa/pontos                    — pontos com coords (heatmap + pins)
  *  GET    /api/mapa/stats                     — totais por status
- *  GET    /api/mapa/falhas                    — NOVO: detalhes dos que falharam
+ *  GET    /api/mapa/falhas                    — detalhes dos que falharam
  *  POST   /api/mapa/geocode/:tipo/:id         — geocodifica 1
  *  POST   /api/mapa/geocode-pendentes         — geocodifica todos (lote)
  */
@@ -48,28 +49,39 @@ router.get('/pontos',
     const lidId  = req.query.lideranca_id || null;
 
     try {
-      const conds = ['tenant_id = $1'];
+      // Aplica filtros DENTRO de cada SELECT do UNION ALL
+      // (Não usamos mais WHERE externo na subquery `combined`)
+
       const params = [req.user.tenant_id];
       let pIdx = 2;
 
-      if (tipo !== 'ambos') {
-        conds.push(`tipo = $${pIdx++}`);
-        params.push(tipo);
-      }
-      if (bairro) { conds.push(`bairro ILIKE $${pIdx++}`); params.push(`%${bairro}%`); }
-      if (cidade) { conds.push(`cidade ILIKE $${pIdx++}`); params.push(`%${cidade}%`); }
-      if (lidId)  {
-        conds.push(`(lideranca_id = $${pIdx} OR (tipo = 'lideranca' AND id = $${pIdx}))`);
+      // Filtros adicionais que valem pra ambas tabelas
+      const filtrosComuns = [];
+      if (bairro) { filtrosComuns.push(`bairro ILIKE $${pIdx}`); params.push(`%${bairro}%`); pIdx++; }
+      if (cidade) { filtrosComuns.push(`cidade ILIKE $${pIdx}`); params.push(`%${cidade}%`); pIdx++; }
+
+      // Filtro de lideranca_id é diferente entre as 2 tabelas:
+      //  - eleitores: WHERE lideranca_id = $X
+      //  - liderancas: WHERE id = $X
+      let filtroLidEleitor = '';
+      let filtroLidLideranca = '';
+      if (lidId) {
+        filtroLidEleitor = `AND lideranca_id = $${pIdx}`;
+        filtroLidLideranca = `AND id = $${pIdx}`;
         params.push(lidId);
         pIdx++;
       }
 
-      const r = await db.query(`
-        SELECT id, nome, telefone, latitude, longitude,
-               endereco, numero, bairro, cidade, tipo,
-               COALESCE(cargo, '') AS cargo,
-               COALESCE(lideranca_id, NULL) AS lideranca_id
-        FROM (
+      const filtrosComunsSQL = filtrosComuns.length ? ' AND ' + filtrosComuns.join(' AND ') : '';
+
+      // Decide quais tabelas incluir
+      const incluirEleitores = (tipo === 'ambos' || tipo === 'eleitor');
+      const incluirLiderancas = (tipo === 'ambos' || tipo === 'lideranca');
+
+      const partes = [];
+
+      if (incluirEleitores) {
+        partes.push(`
           SELECT id, nome, telefone, latitude, longitude,
                  endereco, numero, bairro, cidade,
                  'eleitor'::text AS tipo,
@@ -78,9 +90,13 @@ router.get('/pontos',
           FROM eleitores
           WHERE tenant_id = $1 AND ativo = TRUE
             AND geocoded_status = 'done' AND latitude IS NOT NULL AND longitude IS NOT NULL
+            ${filtrosComunsSQL}
+            ${filtroLidEleitor}
+        `);
+      }
 
-          UNION ALL
-
+      if (incluirLiderancas) {
+        partes.push(`
           SELECT id, nome, telefone, latitude, longitude,
                  endereco, numero, bairro, cidade,
                  'lideranca'::text AS tipo,
@@ -89,10 +105,18 @@ router.get('/pontos',
           FROM liderancas
           WHERE tenant_id = $1 AND ativo = TRUE
             AND geocoded_status = 'done' AND latitude IS NOT NULL AND longitude IS NOT NULL
-        ) AS combined
-        WHERE ${conds.join(' AND ')}
-        LIMIT 5000
-      `, params);
+            ${filtrosComunsSQL}
+            ${filtroLidLideranca}
+        `);
+      }
+
+      if (!partes.length) {
+        return res.json([]);
+      }
+
+      const sql = partes.join('\nUNION ALL\n') + '\nLIMIT 5000';
+
+      const r = await db.query(sql, params);
 
       res.json(r.rows.map(p => ({
         ...p,
@@ -152,13 +176,6 @@ router.get('/stats', async (req, res) => {
 });
 
 /* ── GET /api/mapa/falhas ────────────────────────────────── */
-/**
- * Lista registros que falharam na geocodificação, classificando o motivo:
- *  - 'no_city'     → endereço sem cidade
- *  - 'no_state'    → endereço sem UF/estado
- *  - 'no_address'  → sem rua/avenida
- *  - 'not_found'   → endereço completo mas não foi achado no provider
- */
 router.get('/falhas',
   [query('limit').optional().toInt().isInt({ min: 1, max: 500 })],
   async (req, res) => {
@@ -221,7 +238,6 @@ router.get('/falhas',
         };
       });
 
-      // Agrupa por motivo pra resumo
       const resumo = {};
       rows.forEach(r => {
         resumo[r.motivo] = (resumo[r.motivo] || 0) + 1;
