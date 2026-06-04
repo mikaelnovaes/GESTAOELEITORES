@@ -1,296 +1,376 @@
 /**
  * backend/routes/cidades.js
- * Endpoints para verificação e padronização de cidades.
+ *
+ * Verifica e padroniza nomes de cidades dos eleitores.
  *
  * Endpoints:
- *  GET  /api/cidades/duplicadas          — Detecta cidades similares (fuzzy)
- *  GET  /api/cidades/sem-cidade          — Lista eleitores sem cidade preenchida
- *  GET  /api/cidades/sugestoes-por-bairro — Sugere cidade baseado em quem tem o mesmo bairro
- *  POST /api/cidades/unificar            — Renomeia em massa cidade A → cidade B
- *  POST /api/cidades/preencher-em-massa  — Preenche cidade nos eleitores especificados
+ *   GET  /api/cidades/distintos               — todas as cidades distintas com contagem
+ *   GET  /api/cidades/duplicadas              — grupos de cidades com escrita similar
+ *   GET  /api/cidades/sem-cidade              — eleitores sem cidade preenchida
+ *   GET  /api/cidades/sugestoes-por-bairro    — sugere cidade baseada em quem tem o mesmo bairro
+ *   POST /api/cidades/unificar                — renomeia em massa { de: [...], para: 'X' }
+ *   POST /api/cidades/preencher-em-massa      — preenche cidade nos eleitores de um bairro
+ *   POST /api/cidades/preencher-ids           — preenche cidade num conjunto de ids
  */
 
 'use strict';
 
 const express = require('express');
+const { body, validationResult } = require('express-validator');
+const db = require('../config/database');
+const { requireAdmin } = require('../middleware/auth');
+
 const router = express.Router();
 
-/* ════════════════════════════════════════════════
-   HELPERS
-════════════════════════════════════════════════ */
+function hasErrors(req, res) {
+  const e = validationResult(req);
+  if (!e.isEmpty()) { res.status(400).json({ errors: e.array() }); return true; }
+  return false;
+}
 
-/** Normaliza string: minúsculo, sem acento, sem espaços/símbolos */
-function normalize(s) {
-  if (!s) return '';
-  return String(s)
+/* ════════════════════════════════════════════════════════════
+   NORMALIZAÇÃO — chave para agrupar cidades similares
+   ════════════════════════════════════════════════════════════ */
+/**
+ * Gera uma chave de comparação para um nome de cidade.
+ * - Lowercase, sem acento, sem pontuação
+ * - Expande abreviações comuns ("S." → "sao", "Sto." → "santo", etc)
+ *
+ * Exemplos:
+ *   "São Paulo"  → "sao paulo"
+ *   "Sao Paulo"  → "sao paulo"
+ *   "S. Paulo"   → "sao paulo"
+ *   "SAO PAULO"  → "sao paulo"  (mesmo grupo)
+ */
+function normalizar(nome) {
+  if (!nome) return '';
+  return String(nome)
     .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    // Expande abreviações comuns de nomes de cidades
+    .replace(/\bs\.?\b/g, 'sao')
+    .replace(/\bsto\.?\b/g, 'santo')
+    .replace(/\bsta\.?\b/g, 'santa')
+    .replace(/\bn\.?\b/g, 'nossa')
+    .replace(/\bsra\.?\b/g, 'senhora')
+    // Remove pontuação
+    .replace(/[.,;:!?'"\-_/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-/** Distância de Levenshtein (medida de similaridade entre strings) */
-function levenshtein(a, b) {
-  if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
-  const la = a.length, lb = b.length;
-  if (Math.abs(la - lb) > 5) return 99;
-  const dp = Array.from({ length: la + 1 }, (_, i) => [i]);
-  for (let j = 1; j <= lb; j++) dp[0][j] = j;
-  for (let i = 1; i <= la; i++) {
-    for (let j = 1; j <= lb; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[la][lb];
+/**
+ * Sugere a forma "canônica" preferida entre as variantes.
+ * Critérios:
+ *   1. Sem abreviações ("São Paulo" vence "S. Paulo")
+ *   2. Com acentos ("São Paulo" vence "Sao Paulo")
+ *   3. Mais usada (maior total)
+ */
+function sugerirCanonico(variantes) {
+  const ordenado = [...variantes].sort((a, b) => {
+    const aTemAbrev = /\b(s|sto|sta|n|sra)\.\b/i.test(a.nome) ? 1 : 0;
+    const bTemAbrev = /\b(s|sto|sta|n|sra)\.\b/i.test(b.nome) ? 1 : 0;
+    if (aTemAbrev !== bTemAbrev) return aTemAbrev - bTemAbrev;
+
+    const aTemAcento = /[áéíóúâêîôûãõàèìòùç]/i.test(a.nome) ? 0 : 1;
+    const bTemAcento = /[áéíóúâêîôûãõàèìòùç]/i.test(b.nome) ? 0 : 1;
+    if (aTemAcento !== bTemAcento) return aTemAcento - bTemAcento;
+
+    return b.total - a.total;
+  });
+  return ordenado[0].nome;
 }
 
-/** Similaridade 0..1 (1 = idêntico) */
-function similarity(a, b) {
-  const na = normalize(a), nb = normalize(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) return 0.92;
-  const maxLen = Math.max(na.length, nb.length);
-  if (maxLen === 0) return 1;
-  return 1 - levenshtein(na, nb) / maxLen;
-}
-
-/* ════════════════════════════════════════════════
-   1) DETECTAR CIDADES DUPLICADAS/SIMILARES
-════════════════════════════════════════════════ */
-router.get('/duplicadas', async (req, res, next) => {
+/* ════════════════════════════════════════════════════════════
+   GET /api/cidades/distintos
+   ════════════════════════════════════════════════════════════ */
+router.get('/distintos', async (req, res) => {
   try {
-    const tenantId = req.actingTenant || req.user.tenant_id;
-    const { rows } = await req.db.query(
-      `SELECT cidade, COUNT(*)::int AS qtd
-       FROM eleitores
-       WHERE tenant_id = $1
-         AND cidade IS NOT NULL
-         AND TRIM(cidade) <> ''
-       GROUP BY cidade
-       ORDER BY cidade ASC`,
-      [tenantId]
-    );
-
-    // Agrupa cidades similares
-    const cidades = rows.map(r => ({ nome: r.cidade, qtd: r.qtd, norm: normalize(r.cidade) }));
-    const grupos = [];
-    const visited = new Set();
-
-    for (let i = 0; i < cidades.length; i++) {
-      if (visited.has(i)) continue;
-      const grupo = [cidades[i]];
-      visited.add(i);
-      for (let j = i + 1; j < cidades.length; j++) {
-        if (visited.has(j)) continue;
-        const sim = similarity(cidades[i].nome, cidades[j].nome);
-        if (sim >= 0.78) {
-          grupo.push({ ...cidades[j], similaridade: Math.round(sim * 100) });
-          visited.add(j);
-        }
-      }
-      if (grupo.length > 1) {
-        // Escolhe a versão "canônica" (a com mais ocorrências OU melhor capitalização)
-        const canonica = grupo.reduce((best, curr) => {
-          if (curr.qtd > best.qtd) return curr;
-          if (curr.qtd === best.qtd && curr.nome.length > best.nome.length) return curr;
-          return best;
-        });
-        grupos.push({
-          sugerida: canonica.nome,
-          variantes: grupo.map(c => ({
-            nome: c.nome,
-            qtd: c.qtd,
-            similaridade: c.similaridade || 100,
-            sugerida: c.nome === canonica.nome,
-          })),
-        });
-      }
-    }
-
-    res.json({
-      total_cidades_distintas: cidades.length,
-      total_grupos: grupos.length,
-      total_a_unificar: grupos.reduce((sum, g) => sum + g.variantes.filter(v => !v.sugerida).reduce((s, v) => s + v.qtd, 0), 0),
-      grupos,
-    });
+    const r = await db.query(`
+      SELECT cidade, COUNT(*)::INT AS total
+      FROM eleitores
+      WHERE tenant_id = $1 AND ativo = TRUE AND cidade IS NOT NULL AND cidade <> ''
+      GROUP BY cidade
+      ORDER BY total DESC, cidade ASC
+    `, [req.user.tenant_id]);
+    res.json({ total: r.rows.length, cidades: r.rows });
   } catch (err) {
-    next(err);
+    console.error('[CIDADES] GET /distintos:', err);
+    res.status(500).json({ error: 'Erro ao listar cidades.' });
   }
 });
 
-/* ════════════════════════════════════════════════
-   2) ELEITORES SEM CIDADE
-════════════════════════════════════════════════ */
-router.get('/sem-cidade', async (req, res, next) => {
+/* ════════════════════════════════════════════════════════════
+   GET /api/cidades/duplicadas
+   ════════════════════════════════════════════════════════════ */
+router.get('/duplicadas', async (req, res) => {
   try {
-    const tenantId = req.actingTenant || req.user.tenant_id;
-    const { rows } = await req.db.query(
-      `SELECT id, nome, endereco, numero, bairro
-       FROM eleitores
-       WHERE tenant_id = $1
-         AND (cidade IS NULL OR TRIM(cidade) = '')
-       ORDER BY bairro NULLS LAST, nome ASC`,
-      [tenantId]
-    );
+    const r = await db.query(`
+      SELECT cidade, COUNT(*)::INT AS total
+      FROM eleitores
+      WHERE tenant_id = $1 AND ativo = TRUE AND cidade IS NOT NULL AND cidade <> ''
+      GROUP BY cidade
+      ORDER BY total DESC
+    `, [req.user.tenant_id]);
+
+    const todasCidades = r.rows;
+
+    // Agrupa por chave normalizada
+    const grupos = {};
+    todasCidades.forEach(c => {
+      const chave = normalizar(c.cidade);
+      if (!chave) return;
+      if (!grupos[chave]) grupos[chave] = [];
+      grupos[chave].push({ nome: c.cidade, total: c.total });
+    });
+
+    // Só grupos com 2+ variantes
+    const duplicados = Object.entries(grupos)
+      .filter(([k, v]) => v.length >= 2)
+      .map(([chave, variantes]) => {
+        const totalAfetado = variantes.reduce((s, v) => s + v.total, 0);
+        const sugestao = sugerirCanonico(variantes);
+        const variantesOrdenadas = variantes
+          .sort((a, b) => b.total - a.total)
+          .map(v => ({
+            nome: v.nome,
+            qtd: v.total,
+            similaridade: 100,    // já normalizadas pra mesma chave
+            sugerida: v.nome === sugestao,
+          }));
+        return {
+          chave_normalizada: chave,
+          sugerida: sugestao,
+          total_eleitores_afetados: totalAfetado,
+          variantes: variantesOrdenadas,
+        };
+      })
+      .sort((a, b) => b.total_eleitores_afetados - a.total_eleitores_afetados);
+
     res.json({
-      total: rows.length,
-      eleitores: rows,
+      total_cidades_distintas: todasCidades.length,
+      total_grupos: duplicados.length,
+      total_a_unificar: duplicados.reduce((sum, g) =>
+        sum + g.variantes.filter(v => !v.sugerida).reduce((s, v) => s + v.qtd, 0)
+      , 0),
+      grupos: duplicados,
     });
   } catch (err) {
-    next(err);
+    console.error('[CIDADES] GET /duplicadas:', err);
+    res.status(500).json({ error: 'Erro ao analisar cidades duplicadas.' });
   }
 });
 
-/* ════════════════════════════════════════════════
-   3) SUGESTÕES DE CIDADE POR BAIRRO
-   - Para cada bairro distinto entre os eleitores SEM cidade,
-     verifica qual é a cidade mais comum entre os eleitores que
-     têm esse mesmo bairro E têm cidade preenchida.
-════════════════════════════════════════════════ */
-router.get('/sugestoes-por-bairro', async (req, res, next) => {
+/* ════════════════════════════════════════════════════════════
+   GET /api/cidades/sem-cidade
+   ════════════════════════════════════════════════════════════ */
+router.get('/sem-cidade', async (req, res) => {
   try {
-    const tenantId = req.actingTenant || req.user.tenant_id;
+    const r = await db.query(`
+      SELECT id, nome, endereco, numero, bairro
+      FROM eleitores
+      WHERE tenant_id = $1 AND ativo = TRUE
+        AND (cidade IS NULL OR TRIM(cidade) = '')
+      ORDER BY bairro NULLS LAST, nome ASC
+    `, [req.user.tenant_id]);
+    res.json({ total: r.rows.length, eleitores: r.rows });
+  } catch (err) {
+    console.error('[CIDADES] GET /sem-cidade:', err);
+    res.status(500).json({ error: 'Erro ao listar eleitores sem cidade.' });
+  }
+});
 
-    // 1) Bairros distintos com eleitores SEM cidade
-    const { rows: bairrosSemCidade } = await req.db.query(
-      `SELECT bairro, COUNT(*)::int AS qtd_sem_cidade
-       FROM eleitores
-       WHERE tenant_id = $1
-         AND (cidade IS NULL OR TRIM(cidade) = '')
-         AND bairro IS NOT NULL
-         AND TRIM(bairro) <> ''
-       GROUP BY bairro
-       ORDER BY qtd_sem_cidade DESC, bairro ASC`,
-      [tenantId]
-    );
+/* ════════════════════════════════════════════════════════════
+   GET /api/cidades/sugestoes-por-bairro
+   - Para cada bairro com eleitores sem cidade, sugere
+     a cidade mais comum dos eleitores que TÊM o mesmo bairro.
+   ════════════════════════════════════════════════════════════ */
+router.get('/sugestoes-por-bairro', async (req, res) => {
+  try {
+    const tid = req.user.tenant_id;
 
-    // 2) Para cada bairro, busca a cidade mais frequente
+    // 1) Bairros com eleitores sem cidade
+    const r1 = await db.query(`
+      SELECT bairro, COUNT(*)::INT AS qtd_sem_cidade
+      FROM eleitores
+      WHERE tenant_id = $1 AND ativo = TRUE
+        AND (cidade IS NULL OR TRIM(cidade) = '')
+        AND bairro IS NOT NULL AND TRIM(bairro) <> ''
+      GROUP BY bairro
+      ORDER BY qtd_sem_cidade DESC, bairro ASC
+    `, [tid]);
+
+    // 2) Pra cada bairro, busca cidade mais comum entre quem TEM cidade
     const sugestoes = [];
-    for (const b of bairrosSemCidade) {
-      const { rows: topCidade } = await req.db.query(
-        `SELECT cidade, COUNT(*)::int AS qtd
-         FROM eleitores
-         WHERE tenant_id = $1
-           AND bairro = $2
-           AND cidade IS NOT NULL
-           AND TRIM(cidade) <> ''
-         GROUP BY cidade
-         ORDER BY qtd DESC
-         LIMIT 1`,
-        [tenantId, b.bairro]
-      );
+    for (const b of r1.rows) {
+      const r2 = await db.query(`
+        SELECT cidade, COUNT(*)::INT AS qtd
+        FROM eleitores
+        WHERE tenant_id = $1 AND ativo = TRUE
+          AND bairro = $2
+          AND cidade IS NOT NULL AND TRIM(cidade) <> ''
+        GROUP BY cidade
+        ORDER BY qtd DESC
+        LIMIT 1
+      `, [tid, b.bairro]);
+
       sugestoes.push({
         bairro: b.bairro,
         qtd_sem_cidade: b.qtd_sem_cidade,
-        cidade_sugerida: topCidade[0]?.cidade || null,
-        confianca: topCidade[0] ? (topCidade[0].qtd > 0 ? 'alta' : 'media') : 'nenhuma',
-        baseado_em: topCidade[0]?.qtd || 0,
+        cidade_sugerida: r2.rows[0]?.cidade || null,
+        baseado_em: r2.rows[0]?.qtd || 0,
+        confianca: r2.rows[0] ? 'alta' : 'nenhuma',
       });
     }
 
-    // Bairros sem nenhuma referência (precisam preencher manual)
+    const comSugestao = sugestoes.filter(s => s.cidade_sugerida);
     const semSugestao = sugestoes.filter(s => !s.cidade_sugerida);
 
     res.json({
       total_bairros: sugestoes.length,
-      com_sugestao: sugestoes.filter(s => s.cidade_sugerida).length,
+      com_sugestao: comSugestao.length,
       sem_sugestao: semSugestao.length,
       sugestoes,
     });
   } catch (err) {
-    next(err);
+    console.error('[CIDADES] GET /sugestoes-por-bairro:', err);
+    res.status(500).json({ error: 'Erro ao gerar sugestões.' });
   }
 });
 
-/* ════════════════════════════════════════════════
-   4) UNIFICAR CIDADES (renomear em massa)
-   Body: { de: ["Sao Paulo", "S. Paulo"], para: "São Paulo" }
-════════════════════════════════════════════════ */
-router.post('/unificar', async (req, res, next) => {
-  try {
-    if (req.user.tipo === 'comum') {
-      return res.status(403).json({ error: 'Apenas administradores podem unificar cidades.' });
-    }
-    const tenantId = req.actingTenant || req.user.tenant_id;
+/* ════════════════════════════════════════════════════════════
+   POST /api/cidades/unificar
+   Body: { de: ['Sao Paulo', 'SAO PAULO'], para: 'São Paulo' }
+   ════════════════════════════════════════════════════════════ */
+router.post('/unificar',
+  requireAdmin,
+  [
+    body('de').isArray({ min: 1 }).withMessage('de deve ser array com 1+ nomes'),
+    body('de.*').isString().notEmpty().isLength({ max: 100 }),
+    body('para').isString().trim().notEmpty().isLength({ min: 1, max: 100 }),
+  ],
+  async (req, res) => {
+    if (hasErrors(req, res)) return;
     const { de, para } = req.body;
-    if (!Array.isArray(de) || !de.length || !para || !para.trim()) {
-      return res.status(400).json({ error: 'Parâmetros inválidos. Envie { de: [...], para: "..." }.' });
-    }
-    const { rowCount } = await req.db.query(
-      `UPDATE eleitores
-       SET cidade = $1, atualizado_em = NOW()
-       WHERE tenant_id = $2
-         AND cidade = ANY($3)`,
-      [para.trim(), tenantId, de]
-    );
-    res.json({ atualizados: rowCount, de, para: para.trim() });
-  } catch (err) {
-    next(err);
-  }
-});
+    const tid = req.user.tenant_id;
 
-/* ════════════════════════════════════════════════
-   5) PREENCHER CIDADE EM MASSA POR BAIRRO
-   Body: { bairro: "Centro", cidade: "Guarulhos" }
-   Atualiza todos os eleitores desse bairro que estão SEM cidade.
-════════════════════════════════════════════════ */
-router.post('/preencher-em-massa', async (req, res, next) => {
-  try {
-    if (req.user.tipo === 'comum') {
-      return res.status(403).json({ error: 'Apenas administradores podem preencher em massa.' });
+    try {
+      const result = await db.query(`
+        UPDATE eleitores
+        SET cidade = $1, atualizado_em = NOW()
+        WHERE tenant_id = $2 AND ativo = TRUE AND cidade = ANY($3::text[])
+        RETURNING id
+      `, [para.trim(), tid, de]);
+
+      try {
+        await db.query(`
+          INSERT INTO audit_log (tenant_id, user_id, action, detalhes, criado_em)
+          VALUES ($1, $2, $3, $4, NOW())
+        `, [
+          tid, req.user.id, 'cidades.unificar',
+          JSON.stringify({ de, para, eleitores_alterados: result.rowCount })
+        ]);
+      } catch { /* audit opcional */ }
+
+      res.json({
+        success: true,
+        atualizados: result.rowCount,
+        eleitores_atualizados: result.rowCount,
+        para: para.trim(),
+        de: de,
+      });
+    } catch (err) {
+      console.error('[CIDADES] POST /unificar:', err);
+      res.status(500).json({ error: 'Erro ao unificar cidades.' });
     }
-    const tenantId = req.actingTenant || req.user.tenant_id;
+  }
+);
+
+/* ════════════════════════════════════════════════════════════
+   POST /api/cidades/preencher-em-massa
+   Body: { bairro: 'Centro', cidade: 'Guarulhos' }
+   Preenche a cidade para todos os eleitores desse bairro que
+   estão sem cidade preenchida.
+   ════════════════════════════════════════════════════════════ */
+router.post('/preencher-em-massa',
+  requireAdmin,
+  [
+    body('bairro').isString().trim().notEmpty().isLength({ max: 100 }),
+    body('cidade').isString().trim().notEmpty().isLength({ min: 1, max: 100 }),
+  ],
+  async (req, res) => {
+    if (hasErrors(req, res)) return;
     const { bairro, cidade } = req.body;
-    if (!bairro || !cidade || !cidade.trim()) {
-      return res.status(400).json({ error: 'Envie { bairro: "...", cidade: "..." }.' });
-    }
-    const { rowCount } = await req.db.query(
-      `UPDATE eleitores
-       SET cidade = $1, atualizado_em = NOW()
-       WHERE tenant_id = $2
-         AND bairro = $3
-         AND (cidade IS NULL OR TRIM(cidade) = '')`,
-      [cidade.trim(), tenantId, bairro]
-    );
-    res.json({ atualizados: rowCount, bairro, cidade: cidade.trim() });
-  } catch (err) {
-    next(err);
-  }
-});
+    const tid = req.user.tenant_id;
 
-/* ════════════════════════════════════════════════
-   6) PREENCHER CIDADE NUM SUBCONJUNTO DE IDS
-   Body: { ids: [1, 2, 3], cidade: "Guarulhos" }
-   Usado quando o usuário escolhe IDs específicos.
-════════════════════════════════════════════════ */
-router.post('/preencher-ids', async (req, res, next) => {
-  try {
-    if (req.user.tipo === 'comum') {
-      return res.status(403).json({ error: 'Apenas administradores podem preencher em massa.' });
+    try {
+      const result = await db.query(`
+        UPDATE eleitores
+        SET cidade = $1, atualizado_em = NOW()
+        WHERE tenant_id = $2 AND ativo = TRUE
+          AND bairro = $3
+          AND (cidade IS NULL OR TRIM(cidade) = '')
+        RETURNING id
+      `, [cidade.trim(), tid, bairro]);
+
+      try {
+        await db.query(`
+          INSERT INTO audit_log (tenant_id, user_id, action, detalhes, criado_em)
+          VALUES ($1, $2, $3, $4, NOW())
+        `, [
+          tid, req.user.id, 'cidades.preencher-em-massa',
+          JSON.stringify({ bairro, cidade, atualizados: result.rowCount })
+        ]);
+      } catch { /* audit opcional */ }
+
+      res.json({
+        success: true,
+        atualizados: result.rowCount,
+        bairro,
+        cidade: cidade.trim(),
+      });
+    } catch (err) {
+      console.error('[CIDADES] POST /preencher-em-massa:', err);
+      res.status(500).json({ error: 'Erro ao preencher cidades.' });
     }
-    const tenantId = req.actingTenant || req.user.tenant_id;
-    const { ids, cidade } = req.body;
-    if (!Array.isArray(ids) || !ids.length || !cidade || !cidade.trim()) {
-      return res.status(400).json({ error: 'Envie { ids: [...], cidade: "..." }.' });
-    }
-    const idsNumericos = ids.map(Number).filter(n => Number.isFinite(n));
-    if (!idsNumericos.length) {
-      return res.status(400).json({ error: 'IDs inválidos.' });
-    }
-    const { rowCount } = await req.db.query(
-      `UPDATE eleitores
-       SET cidade = $1, atualizado_em = NOW()
-       WHERE tenant_id = $2
-         AND id = ANY($3::int[])`,
-      [cidade.trim(), tenantId, idsNumericos]
-    );
-    res.json({ atualizados: rowCount, cidade: cidade.trim() });
-  } catch (err) {
-    next(err);
   }
-});
+);
+
+/* ════════════════════════════════════════════════════════════
+   POST /api/cidades/preencher-ids
+   Body: { ids: [1,2,3], cidade: 'Guarulhos' }
+   ════════════════════════════════════════════════════════════ */
+router.post('/preencher-ids',
+  requireAdmin,
+  [
+    body('ids').isArray({ min: 1 }).withMessage('ids deve ser array com 1+ números'),
+    body('ids.*').isInt({ min: 1 }),
+    body('cidade').isString().trim().notEmpty().isLength({ min: 1, max: 100 }),
+  ],
+  async (req, res) => {
+    if (hasErrors(req, res)) return;
+    const { ids, cidade } = req.body;
+    const tid = req.user.tenant_id;
+
+    try {
+      const result = await db.query(`
+        UPDATE eleitores
+        SET cidade = $1, atualizado_em = NOW()
+        WHERE tenant_id = $2 AND ativo = TRUE
+          AND id = ANY($3::int[])
+        RETURNING id
+      `, [cidade.trim(), tid, ids]);
+
+      res.json({
+        success: true,
+        atualizados: result.rowCount,
+        cidade: cidade.trim(),
+      });
+    } catch (err) {
+      console.error('[CIDADES] POST /preencher-ids:', err);
+      res.status(500).json({ error: 'Erro ao preencher cidades.' });
+    }
+  }
+);
 
 module.exports = router;
