@@ -1,11 +1,16 @@
 /**
- * frontend/js/etiquetas.js (v6 — alinhamento + fonte do nome +2pt)
+ * frontend/js/etiquetas.js (v7 — novo tamanho Pimaco 6081)
  *
- * NOVO vs v5:
+ * NOVO vs v6:
+ *  - Adicionado tamanho "carta3col" → 25,4 × 66,7 mm (Pimaco 6081 / Avery 5160)
+ *    30 etiquetas por folha A4 (3 colunas × 10 linhas)
+ *  - Atualiza o <select> automaticamente com o novo tamanho
+ *
+ * Mantém de v6:
  *  - Opção de alinhamento: Esquerda / Centro / Direita
- *  - Fonte do NOME aumentada em +2pt (era +1pt sobre o corpo)
- *  - Alinhamento aplicado em todos os campos (nome, endereço, bairro, CEP)
- *  - Pré-visualização REAL com o alinhamento selecionado
+ *  - Fonte do NOME +2pt sobre o corpo
+ *  - Pré-visualização real
+ *  - Paginação em chunks de 200 (limite do backend)
  */
 
 'use strict';
@@ -40,6 +45,15 @@
       espacoHMM: 0, espacoVMM: 0,
       fonte: 8,
     },
+    'carta3col': {
+      nome: 'Carta 3 colunas (25,4 × 66,7 mm)',
+      desc: '30 etiquetas por folha A4 — Pimaco 6081 / Avery 5160',
+      larguraMM: 66.7, alturaMM: 25.4,
+      colunas: 3, linhas: 10,
+      margemTopoMM: 12.7, margemEsqMM: 4.7,
+      espacoHMM: 2.5, espacoVMM: 0,
+      fonte: 7,
+    },
   };
 
   let estadoAtual = {
@@ -55,6 +69,7 @@
   /* ════════════════════════════════════════════════
      1) ABRIR MODAL DE GERAR
      - Injeta o seletor de alinhamento se ainda não tem
+     - Injeta o novo tamanho carta3col no <select>
   ════════════════════════════════════════════════ */
   function abrirGerar() {
     const modal = document.getElementById('modal-etiquetas');
@@ -64,7 +79,9 @@
       return;
     }
 
-    // Injeta seletor de alinhamento dinamicamente (não precisa mexer no index.html)
+    // Garante que o novo tamanho carta3col esteja no select
+    injetarNovosTamanhos();
+    // Injeta seletor de alinhamento dinamicamente
     injetarSeletorAlinhamento();
 
     modal.classList.add('show');
@@ -80,6 +97,17 @@
       sel.addEventListener('change', atualizarDesc);
       atualizarDesc();
     }
+  }
+
+  function injetarNovosTamanhos() {
+    const sel = document.getElementById('etq-tamanho');
+    if (!sel) return;
+    // Se já tem a opção carta3col, não faz nada
+    if (sel.querySelector('option[value="carta3col"]')) return;
+    const opt = document.createElement('option');
+    opt.value = 'carta3col';
+    opt.textContent = '25,4 × 66,7 mm — 30 por folha (Pimaco 6081)';
+    sel.appendChild(opt);
   }
 
   function injetarSeletorAlinhamento() {
@@ -446,7 +474,7 @@ ${folhas.map(renderFolha).join('')}
         return;
       }
 
-      const TAM = { carta: '33,9×99', media: '50,8×101,6', pequena: '100×25' };
+      const TAM = { carta: '33,9×99', media: '50,8×101,6', pequena: '100×25', carta3col: '25,4×66,7' };
       container.innerHTML = `
         <div style="margin-bottom:1rem;">
           <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--navy);">
@@ -571,6 +599,6 @@ ${folhas.map(renderFolha).join('')}
 
   window.GEEtiquetas = { abrirGerar, openHistorico, visualizarComoPDF };
 
-  console.log('[ETIQUETAS v6] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
+  console.log('[ETIQUETAS v7] Módulo carregado. Métodos:', Object.keys(window.GEEtiquetas));
 
 })();
