@@ -573,3 +573,18 @@ body .app-wrapper.show .app-sidebar.expanded .sb-submenu .sb-subitem {
 .app-wrapper.show textarea {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
 }
+.modal-overlay,
+.modal-overlay.show {
+  z-index: 9999 !important;
+}
+
+.modal-overlay .modal-content,
+.modal-overlay .modal-container {
+  z-index: 10000 !important;
+}
+
+/* Toast e acting-banner também precisam ficar acima do mapa */
+#toast,
+#acting-banner {
+  z-index: 9998 !important;
+}
