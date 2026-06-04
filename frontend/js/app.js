@@ -1001,6 +1001,25 @@ document.getElementById('btn-check-duplicates')?.addEventListener('click', async
   renderDuplicatesModal(groups);
 });
 
+/* ============================================================
+   BOTÕES: Verificar Bairros + Verificar Cidades
+   ============================================================ */
+document.getElementById('btn-check-bairros')?.addEventListener('click', () => {
+  if (window.GEBairros?.abrirVerificacao) {
+    window.GEBairros.abrirVerificacao();
+  } else {
+    showToast('Módulo de bairros não carregado.', 'error');
+  }
+});
+
+document.getElementById('btn-check-cidades')?.addEventListener('click', () => {
+  if (window.GECidades?.openModal) {
+    window.GECidades.openModal();
+  } else {
+    showToast('Módulo de cidades não carregado.', 'error');
+  }
+});
+
 function renderDuplicatesModal(groups) {
   const body   = document.getElementById('dup-modal-body');
   const footer = document.getElementById('dup-modal-footer');
