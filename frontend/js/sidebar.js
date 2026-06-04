@@ -35,7 +35,7 @@
       icon: '👥',
       label: 'Eleitores',
       tip: 'Cadastros e padronização',
-      badgeKey: 'pendencias_eleitores', // soma bairros + cidades pendentes
+      badgeKey: 'bairros_pendentes', // ← VOLTA pra esse (mais simples)
       subitems: [
         { view: 'list', label: 'Todos os Eleitores', badgeKey: 'total_eleitores' },
         { view: 'new', label: '+ Novo Cadastro' },
