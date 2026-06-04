@@ -35,7 +35,6 @@ const dashboardRoutes  = require('./routes/dashboard-route');
 const disparoRoutes    = require('./routes/disparo-route');
 const etiquetasRoutes  = require('./routes/etiquetas-route');
 const bairrosRoutes    = require('./routes/bairros-route');
-const bairrosRoutes    = require('./routes/bairros-route');
 const cidadesRoutes    = require('./routes/cidades');
 
 
