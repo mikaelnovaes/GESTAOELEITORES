@@ -75,11 +75,12 @@
           <div class="stat-number" id="stat-total">0</div>
           <div class="stat-label">Total</div>
         </div>
-        <button class="btn btn-secondary" id="btn-export-csv">Exportar CSV</button>
-        <button class="btn btn-secondary" id="btn-verificar-bairros" title="Detectar bairros com escrita similar e unificá-los">🔍 Verificar bairros</button>
-        <button class="btn btn-secondary" id="btn-check-duplicates">Duplicatas</button>
-        <button class="btn admin-only" id="btn-purge-all" style="display:none;background:var(--danger);color:white;border:1px solid var(--danger);" title="Excluir TODOS os eleitores deste ambiente (irreversível)">Excluir Todos</button>
-        <button class="btn btn-primary" id="btn-new-eleitor">+ Novo Eleitor</button>
+            <button id="btn-export-csv" class="btn btn-secondary" style="font-size:0.78rem;padding:5px 10px;">Exportar CSV</button>
+            <button id="btn-check-bairros" class="btn btn-secondary admin-only" style="font-size:0.78rem;padding:5px 10px;">🔍 Verificar Bairros</button>
+            <button id="btn-check-cidades" class="btn btn-secondary admin-only" style="font-size:0.78rem;padding:5px 10px;">🏙️ Verificar Cidades <span class="badge badge-warning" data-badge="cidades_pendentes" style="display:none;margin-left:4px;">0</span></button>
+            <button id="btn-check-duplicates" class="btn btn-secondary admin-only" style="font-size:0.78rem;padding:5px 10px;">🔁 Verificar Duplicatas</button>
+            <button id="btn-purge-all" class="btn btn-danger admin-only" style="font-size:0.78rem;padding:5px 10px;">🗑 Excluir Todos</button>
+            <button id="btn-new-eleitor" class="btn btn-primary" style="font-size:0.78rem;padding:5px 10px;">+ Novo Eleitor</button>
       </div>
     </div>
     <div class="filters">
@@ -982,5 +983,6 @@
 <script src="js/app.js?v=9"></script>
 <script src="js/bairros.js?v=1"></script>
 <script src="js/sidebar.js?v=2"></script>
+<script src="js/cidades.js?v=1"></script>
 </body>
 </html>
