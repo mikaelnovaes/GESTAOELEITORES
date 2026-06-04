@@ -35,8 +35,8 @@ const dashboardRoutes  = require('./routes/dashboard-route');
 const disparoRoutes    = require('./routes/disparo-route');
 const etiquetasRoutes  = require('./routes/etiquetas-route');
 const bairrosRoutes    = require('./routes/bairros-route');
-const cidadesRouter = require('./routes/cidades');
-app.use('/api/cidades', autenticar, cidadesRouter);
+const bairrosRoutes    = require('./routes/bairros-route');
+const cidadesRoutes    = require('./routes/cidades');
 
 
 const { authMiddleware } = require('./middleware/auth');
@@ -166,6 +166,7 @@ app.use('/api/projecao',  authMiddleware, projecaoRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/etiquetas', authMiddleware, etiquetasRoutes);
 app.use('/api/bairros',   authMiddleware, bairrosRoutes);
+app.use('/api/cidades',   authMiddleware, cidadesRoutes);
 app.use('/api/disparo',   authMiddleware, disparoRoutes);
 app.use('/api/agenda', (req, res, next) => {
   // Permite /publico/:token sem autenticação
