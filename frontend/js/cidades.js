@@ -1,15 +1,10 @@
 /**
- * frontend/js/cidades.js v1
+ * frontend/js/cidades.js v2 (fundo opaco corrigido)
  * Módulo de Verificação e Padronização de Cidades.
  *
- * Funcionalidades:
- *  1. Detectar cidades similares/com erro ortográfico (fuzzy)
- *  2. Unificar cidades duplicadas em uma versão canônica
- *  3. Listar eleitores sem cidade preenchida
- *  4. Sugerir cidade automaticamente baseado no bairro
- *  5. Preencher cidades em massa (por bairro) ou individualmente
- *
- * Expõe: window.GECidades = { openModal, refreshBadge }
+ * Mudança vs v1:
+ *  - Trocada classe "modal-content" → "modal" (padrão do sistema)
+ *  - Fundo opaco garantido via inline style também (fallback)
  */
 
 'use strict';
@@ -17,23 +12,16 @@
 (function () {
 
   /* ════════════════════════════════════════════════
-     1) MODAL PRINCIPAL — abre direto na aba mais útil
+     1) ABRIR MODAL
   ════════════════════════════════════════════════ */
   async function openModal(abaInicial) {
     let modal = document.getElementById('modal-cidades');
     if (!modal) modal = construirModal();
     modal.classList.add('show');
 
-    // Decide aba inicial automaticamente
     if (!abaInicial) {
       const stats = await carregarStats();
-      if (stats.sem_cidade > 0) {
-        abaInicial = 'sem-cidade';
-      } else if (stats.total_grupos > 0) {
-        abaInicial = 'duplicadas';
-      } else {
-        abaInicial = 'duplicadas';
-      }
+      abaInicial = stats.sem_cidade > 0 ? 'sem-cidade' : 'duplicadas';
     }
     trocarAba(abaInicial);
   }
@@ -55,20 +43,22 @@
   }
 
   /* ════════════════════════════════════════════════
-     2) CONSTRUÇÃO DO MODAL (HTML dinâmico)
+     2) CONSTRUÇÃO DO MODAL — usa class="modal" do sistema
   ════════════════════════════════════════════════ */
   function construirModal() {
     const overlay = document.createElement('div');
     overlay.id = 'modal-cidades';
     overlay.className = 'modal-overlay';
+    // class="modal" é o padrão do sistema (mesmo do modal-etiquetas)
+    // + estilo inline como fallback garantido
     overlay.innerHTML = `
-      <div class="modal-content" style="max-width:920px;width:95vw;max-height:90vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-          <h2 class="modal-title">🏙️ Verificar Cidades</h2>
-          <button class="modal-close" data-close="modal-cidades">×</button>
+      <div class="modal" style="background:#fff;max-width:920px;width:95vw;max-height:90vh;display:flex;flex-direction:column;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div class="modal-header" style="background:#fff;padding:1.2rem 1.5rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;">
+          <h2 class="modal-title" style="margin:0;font-family:'Fraunces',serif;font-size:1.4rem;color:var(--navy);">🏙️ Verificar Cidades</h2>
+          <button class="modal-close" data-close="modal-cidades" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);padding:0;line-height:1;">×</button>
         </div>
 
-        <div style="border-bottom:1px solid var(--line);display:flex;gap:0;padding:0 1.5rem;">
+        <div style="background:#fff;border-bottom:1px solid var(--line);display:flex;gap:0;padding:0 1.5rem;">
           <button class="cid-tab cid-tab-active" data-aba="sem-cidade" style="padding:0.7rem 1.2rem;background:none;border:none;border-bottom:2px solid var(--gold);font-weight:600;color:var(--navy);cursor:pointer;font-family:inherit;">
             📍 Sem Cidade <span id="cid-tab-sem-count" class="badge badge-comum" style="margin-left:0.4rem;">0</span>
           </button>
@@ -77,18 +67,17 @@
           </button>
         </div>
 
-        <div id="modal-cidades-body" class="modal-body" style="flex:1;overflow-y:auto;padding:1.5rem;">
+        <div id="modal-cidades-body" class="modal-body" style="background:#fff;flex:1;overflow-y:auto;padding:1.5rem;">
           <div class="empty" style="padding:2rem;text-align:center;color:var(--muted);">Carregando…</div>
         </div>
 
-        <div class="modal-footer" id="modal-cidades-footer">
+        <div class="modal-footer" id="modal-cidades-footer" style="background:var(--cream);padding:1rem 1.5rem;border-top:1px solid var(--line);display:flex;gap:0.6rem;justify-content:flex-end;">
           <button class="btn btn-secondary" data-close="modal-cidades">Fechar</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    // Handlers
     overlay.querySelectorAll('[data-close]').forEach(btn => {
       btn.addEventListener('click', () => overlay.classList.remove('show'));
     });
@@ -115,7 +104,7 @@
   }
 
   /* ════════════════════════════════════════════════
-     3) ABA "SEM CIDADE" — preenchimento baseado em bairro
+     3) ABA "SEM CIDADE"
   ════════════════════════════════════════════════ */
   async function renderAbaSemCidade() {
     const body = document.getElementById('modal-cidades-body');
@@ -125,7 +114,6 @@
       const dados = await window.API.get('/cidades/sugestoes-por-bairro');
       const semCidade = await window.API.get('/cidades/sem-cidade');
 
-      // Atualiza badge do título da aba
       document.getElementById('cid-tab-sem-count').textContent = semCidade.total;
 
       if (!dados.sugestoes.length) {
@@ -138,7 +126,6 @@
         return;
       }
 
-      // Resumo no topo
       let html = `
         <div style="background:var(--cream);padding:1rem 1.2rem;border-radius:6px;margin-bottom:1.2rem;border-left:3px solid var(--gold);">
           <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;font-size:0.88rem;">
@@ -194,13 +181,9 @@
         `;
       });
 
-      html += `
-          </tbody>
-        </table>
-      `;
+      html += `</tbody></table>`;
       body.innerHTML = html;
 
-      // Atualiza footer com botão "Aplicar TODAS as sugestões"
       const sugeridosCount = dados.sugestoes.filter(s => s.cidade_sugerida).length;
       const footer = document.getElementById('modal-cidades-footer');
       footer.innerHTML = `
@@ -214,12 +197,9 @@
         btn.addEventListener('click', () => document.getElementById('modal-cidades').classList.remove('show'))
       );
 
-      // Handlers individuais
       body.querySelectorAll('.cid-aplicar').forEach(btn => {
         btn.addEventListener('click', () => aplicarUmBairro(btn.dataset.bairro));
       });
-
-      // Handler "aplicar todas"
       document.getElementById('cid-aplicar-todas-sugestoes')?.addEventListener('click', () => aplicarTodasSugestoes(dados.sugestoes));
 
     } catch (err) {
@@ -236,7 +216,7 @@
       input.focus();
       return;
     }
-    const row = document.getElementById(`cid-row-${[...document.querySelectorAll('.cid-input')].indexOf(input)}`);
+    const row = input.closest('tr');
     const qtd = row?.querySelector('td:nth-child(2)')?.textContent || '?';
 
     if (!confirm(`Aplicar "${cidade}" como cidade para os ${qtd} eleitores do bairro "${bairro}"?`)) return;
@@ -244,11 +224,8 @@
     try {
       const r = await window.API.post('/cidades/preencher-em-massa', { bairro, cidade });
       window.showToast?.(`✓ ${r.atualizados} eleitor(es) atualizado(s) com "${cidade}".`, 'success');
-      // Remove a linha
       row?.remove();
-      // Atualiza badges
       refreshBadge();
-      // Sincroniza cache local
       if (window.syncFromAPI) await window.syncFromAPI();
       if (window.renderList) window.renderList();
     } catch (err) {
@@ -257,10 +234,6 @@
   }
 
   async function aplicarTodasSugestoes(sugestoes) {
-    const comSugestao = sugestoes.filter(s => s.cidade_sugerida);
-    if (!comSugestao.length) return;
-
-    // Pega o valor ATUAL dos inputs (usuário pode ter ajustado)
     const atualizacoes = [];
     document.querySelectorAll('.cid-input').forEach(inp => {
       const v = inp.value.trim();
@@ -268,7 +241,10 @@
     });
     const validas = atualizacoes.filter(a => sugestoes.find(s => s.bairro === a.bairro && s.cidade_sugerida));
 
-    if (!validas.length) return;
+    if (!validas.length) {
+      window.showToast?.('Nenhuma sugestão automática para aplicar.', 'info');
+      return;
+    }
 
     if (!confirm(`Aplicar ${validas.length} sugestões automáticas?\n\nIsso vai preencher a cidade de todos os eleitores nesses bairros que estão sem cidade.`)) return;
 
@@ -278,14 +254,11 @@
       try {
         const r = await window.API.post('/cidades/preencher-em-massa', a);
         totalAtualizados += r.atualizados || 0;
-      } catch (e) {
-        erros++;
-      }
+      } catch (e) { erros++; }
     }
 
     window.showToast?.(`✓ ${totalAtualizados} eleitor(es) atualizado(s)${erros ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}.`, 'success');
 
-    // Recarrega
     if (window.syncFromAPI) await window.syncFromAPI();
     if (window.renderList) window.renderList();
     refreshBadge();
@@ -293,7 +266,7 @@
   }
 
   /* ════════════════════════════════════════════════
-     4) ABA "DUPLICADAS" — cidades similares
+     4) ABA "DUPLICADAS"
   ════════════════════════════════════════════════ */
   async function renderAbaDuplicadas() {
     const body = document.getElementById('modal-cidades-body');
@@ -314,7 +287,6 @@
                 : `As ${dados.total_cidades_distintas} cidades cadastradas estão padronizadas.`}
             </p>
           </div>`;
-        // Footer simples
         const footer = document.getElementById('modal-cidades-footer');
         footer.innerHTML = `<button class="btn btn-secondary" data-close="modal-cidades">Fechar</button>`;
         footer.querySelector('[data-close]').addEventListener('click', () => document.getElementById('modal-cidades').classList.remove('show'));
@@ -336,7 +308,7 @@
 
       dados.grupos.forEach((g, gi) => {
         html += `
-          <div class="cid-grupo" data-grupo="${gi}" style="border:1px solid var(--line);border-radius:6px;margin-bottom:1rem;overflow:hidden;">
+          <div class="cid-grupo" data-grupo="${gi}" style="border:1px solid var(--line);border-radius:6px;margin-bottom:1rem;overflow:hidden;background:#fff;">
             <div style="background:var(--cream);padding:0.8rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);">
               <div>
                 <strong style="color:var(--navy);">Grupo ${gi + 1}</strong>
@@ -346,7 +318,7 @@
                 ✓ Unificar Grupo
               </button>
             </div>
-            <div style="padding:0.6rem 1.2rem;">
+            <div style="padding:0.6rem 1.2rem;background:#fff;">
               <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.4rem;">
                 Selecione a versão correta (radio) — todas as outras serão substituídas:
               </div>
@@ -355,7 +327,6 @@
                   <input type="radio" name="cid-grupo-${gi}" value="${escapeHtml(v.nome)}" ${v.sugerida ? 'checked' : ''}>
                   <strong style="color:var(--navy);min-width:200px;">${escapeHtml(v.nome)}</strong>
                   <span style="color:var(--muted);font-size:0.82rem;">${v.qtd} eleitor${v.qtd > 1 ? 'es' : ''}</span>
-                  <span style="color:var(--muted);font-size:0.78rem;">· similaridade ${v.similaridade}%</span>
                   ${v.sugerida ? '<span class="badge badge-success" style="font-size:0.7rem;">recomendado</span>' : ''}
                 </label>
               `).join('')}
@@ -366,12 +337,11 @@
 
       body.innerHTML = html;
 
-      // Footer "unificar todos"
       const footer = document.getElementById('modal-cidades-footer');
       footer.innerHTML = `
         <button class="btn btn-secondary" data-close="modal-cidades">Fechar</button>
         <button class="btn btn-primary" id="cid-unificar-todos">
-          ✓ Unificar TODOS os grupos (sugestão recomendada)
+          ✓ Unificar TODOS os grupos
         </button>
       `;
       footer.querySelector('[data-close]').addEventListener('click', () => document.getElementById('modal-cidades').classList.remove('show'));
@@ -409,7 +379,7 @@
   }
 
   async function unificarTodosGrupos(grupos) {
-    if (!confirm(`Unificar TODOS os ${grupos.length} grupos?\n\nVai usar a sugestão recomendada (versão com mais eleitores) de cada grupo.`)) return;
+    if (!confirm(`Unificar TODOS os ${grupos.length} grupos?\n\nVai usar a sugestão recomendada de cada grupo.`)) return;
 
     let total = 0;
     let erros = 0;
@@ -423,9 +393,7 @@
       try {
         const r = await window.API.post('/cidades/unificar', { de: outras, para: selecionado });
         total += r.atualizados || 0;
-      } catch (e) {
-        erros++;
-      }
+      } catch (e) { erros++; }
     }
     window.showToast?.(`✓ ${total} eleitor(es) atualizado(s)${erros ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}.`, 'success');
     if (window.syncFromAPI) await window.syncFromAPI();
@@ -435,7 +403,7 @@
   }
 
   /* ════════════════════════════════════════════════
-     5) BADGE da sidebar
+     5) BADGE
   ════════════════════════════════════════════════ */
   async function refreshBadge() {
     try {
@@ -464,13 +432,8 @@
     return String(s).replace(/(["\\\\])/g, '\\$1');
   }
 
-  /* ════════════════════════════════════════════════
-     INIT
-  ════════════════════════════════════════════════ */
   function init() {
     document.getElementById('btn-check-cidades')?.addEventListener('click', () => openModal());
-
-    // Refresh badge periódico
     setTimeout(refreshBadge, 2500);
     window.addEventListener('ge:user-changed', () => setTimeout(refreshBadge, 1500));
   }
@@ -482,6 +445,6 @@
   }
 
   window.GECidades = { openModal, refreshBadge };
-  console.log('[CIDADES v1] Módulo carregado.');
+  console.log('[CIDADES v2] Módulo carregado.');
 
 })();
