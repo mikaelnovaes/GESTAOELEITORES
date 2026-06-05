@@ -321,10 +321,15 @@ const count = k === 'null' ? r.sem_classificacao : (r[MAP[k]] ?? 0);
     });
   }
 
-  function renderGraficoBairros(bairros) {
+ function renderGraficoBairros(bairros) {
+  requestAnimationFrame(() => {
     const canvas = document.getElementById('grafico-bairros');
     if (!canvas || !bairros.length) return;
+    _desenharGrafico(canvas, bairros);
+  });
+}
 
+function _desenharGrafico(canvas, bairros) {
     const labels = bairros.slice(0, 10).map(b => b.bairro);
     const confirmados = bairros.slice(0, 10).map(b => b.confirmados);
     const provaveis   = bairros.slice(0, 10).map(b => b.provaveis);
