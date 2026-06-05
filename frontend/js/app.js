@@ -1053,7 +1053,6 @@ document.getElementById('btn-check-enderecos')?.addEventListener('click', () => 
 });
 
 function renderDuplicatesModal(groups) {
-function renderDuplicatesModal(groups) {
   const body   = document.getElementById('dup-modal-body');
   const footer = document.getElementById('dup-modal-footer');
   if (!body) return;
