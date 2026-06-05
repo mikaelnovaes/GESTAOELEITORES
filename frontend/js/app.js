@@ -561,7 +561,6 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
   lideranca_id:    lidVal ? Number(lidVal) : null,
     intencao_voto:   document.getElementById('f-intencao')?.value || null,
   };
-  };
   try {
     if (id) { await API.put(`/eleitores/${id}`, data); showToast('Eleitor atualizado!', 'success'); }
     else    { await API.post('/eleitores', data);       showToast('Eleitor cadastrado!', 'success'); }
