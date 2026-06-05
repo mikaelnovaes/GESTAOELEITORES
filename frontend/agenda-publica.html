@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda Pública</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f5f0e8;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+    .header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 2rem 1.5rem 1.5rem;
+      text-align: center;
+    }
+    .header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #c9a961;
+    }
+    .header p {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-top: 0.3rem;
+    }
+    .mes-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 1rem;
+      background: #fff;
+      border-bottom: 1px solid #e5e0d5;
+    }
+    .mes-nav button {
+      background: none;
+      border: 1px solid #c9a961;
+      color: #c9a961;
+      padding: 0.4rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    .mes-nav button:hover { background: #c9a961; color: #fff; }
+    .mes-nome {
+      font-family: 'Fraunces', serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      text-transform: capitalize;
+      min-width: 200px;
+      text-align: center;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+    }
+    .evento-grupo { margin-bottom: 1.5rem; }
+    .evento-data-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #c9a961;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #e5e0d5;
+      margin-bottom: 0.7rem;
+    }
+    .evento-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 0.6rem;
+      border-left: 4px solid #c9a961;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+    }
+    .evento-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .evento-titulo {
+      font-weight: 600;
+      color: #1a1a2e;
+      font-size: 1rem;
+      margin-bottom: 0.2rem;
+    }
+    .evento-meta {
+      font-size: 0.82rem;
+      color: #6b7280;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .evento-desc {
+      font-size: 0.85rem;
+      color: #4b5563;
+      margin-top: 0.4rem;
+      line-height: 1.5;
+    }
+    .badge-tipo {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #9ca3af;
+    }
+    .empty .icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    .empty h3 { font-family: 'Fraunces', serif; color: #6b7280; margin-bottom: 0.4rem; }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+    .erro {
+      text-align: center;
+      padding: 3rem;
+      color: #ef4444;
+    }
+    .compartilhar {
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      background: #fff;
+      border-top: 1px solid #e5e0d5;
+      margin-top: 2rem;
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.4rem; }
+      .mes-nome { min-width: 150px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="candidato-nome">Agenda de Eventos</h1>
+  <p id="candidato-cargo"></p>
+</div>
+
+<div class="mes-nav">
+  <button id="btn-prev">‹</button>
+  <div class="mes-nome" id="mes-label">Carregando...</div>
+  <button id="btn-next">›</button>
+</div>
+
+<div class="container">
+  <div id="eventos-container">
+    <div class="loading">⏳ Carregando eventos...</div>
+  </div>
+</div>
+
+<div class="compartilhar">
+  📅 Agenda pública — Gestão de Eleitores
+</div>
+
+<script>
+  const TIPO_CONFIG = {
+    evento:     { label: 'Evento',     cor: '#c9a961', icon: '🎯' },
+    reuniao:    { label: 'Reunião',    cor: '#3b82f6', icon: '🤝' },
+    visita:     { label: 'Visita',     cor: '#8b5cf6', icon: '🚗' },
+    comicio:    { label: 'Comício',    cor: '#ef4444', icon: '📢' },
+    entrevista: { label: 'Entrevista', cor: '#06b6d4', icon: '🎙️' },
+    outro:      { label: 'Outro',      cor: '#6b7280', icon: '📌' },
+  };
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Lê parâmetros da URL
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('token');
+
+  // Estado do mês atual
+  let mesAtual = new Date();
+  const mesParam = parseInt(params.get('mes'));
+  const anoParam = parseInt(params.get('ano'));
+  if (mesParam && anoParam) {
+    mesAtual = new Date(anoParam, mesParam - 1, 1);
+  } else {
+    mesAtual.setDate(1);
+  }
+
+  let candidatoNome = 'Agenda de Eventos';
+
+  if (!token || token === 'undefined' || token === 'null') {
+    document.getElementById('eventos-container').innerHTML = `
+      <div class="erro">
+        <div style="font-size:2rem;margin-bottom:0.5rem;">⚠️</div>
+        <h3>Link inválido</h3>
+        <p>Este link não é válido ou foi desativado.</p>
+      </div>`;
+    document.getElementById('mes-label').textContent = '—';
+  } else {
+    carregarEventos();
+  }
+
+  async function carregarEventos() {
+    const mesLabel = document.getElementById('mes-label');
+    const container = document.getElementById('eventos-container');
+
+    const mes = mesAtual.getMonth() + 1;
+    const ano = mesAtual.getFullYear();
+    mesLabel.textContent = mesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+    // Atualiza URL sem recarregar
+    const url = new URL(window.location);
+    url.searchParams.set('mes', mes);
+    url.searchParams.set('ano', ano);
+    window.history.replaceState({}, '', url);
+
+    container.innerHTML = '<div class="loading">⏳ Carregando...</div>';
+
+    try {
+      const r = await fetch(`/api/agenda/publico/${token}`);
+      if (!r.ok) throw new Error('Agenda não encontrada.');
+      const data = await r.json();
+
+      // Atualiza nome do candidato
+      if (data.candidato) {
+        candidatoNome = data.candidato;
+        document.getElementById('candidato-nome').textContent = data.candidato;
+      }
+      if (data.cargo) {
+        document.getElementById('candidato-cargo').textContent = data.cargo;
+      }
+
+      // Filtra pelo mês/ano selecionado
+      const eventosFiltrados = (data.eventos || []).filter(ev => {
+        const d = new Date(ev.data_inicio);
+        return d.getMonth() + 1 === mes && d.getFullYear() === ano;
+      });
+
+      renderEventos(eventosFiltrados);
+
+    } catch (err) {
+      container.innerHTML = `
+        <div class="erro">
+          <div style="font-size:2rem;margin-bottom:0.5rem;">😕</div>
+          <h3>Erro ao carregar</h3>
+          <p>${esc(err.message)}</p>
+        </div>`;
+    }
+  }
+
+  function renderEventos(evs) {
+    const container = document.getElementById('eventos-container');
+
+    if (!evs.length) {
+      const nomeMes = mesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+      container.innerHTML = `
+        <div class="empty">
+          <div class="icon">📅</div>
+          <h3>Nenhum evento em ${nomeMes}</h3>
+          <p>Não há eventos públicos cadastrados para este período.</p>
+        </div>`;
+      return;
+    }
+
+    // Agrupa por dia
+    const grouped = {};
+    evs.forEach(ev => {
+      const d = new Date(ev.data_inicio);
+      const key = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(ev);
+    });
+
+    container.innerHTML = Object.entries(grouped).map(([dia, evList]) => `
+      <div class="evento-grupo">
+        <div class="evento-data-label">${dia.toUpperCase()}</div>
+        ${evList.map(ev => {
+          const cfg = TIPO_CONFIG[ev.tipo] || TIPO_CONFIG.outro;
+          const hora = new Date(ev.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          return `
+            <div class="evento-card" style="border-left-color:${cfg.cor};">
+              <div class="evento-icon">${cfg.icon}</div>
+              <div style="flex:1;">
+                <div class="evento-titulo">${esc(ev.titulo)}</div>
+                <div class="evento-meta">
+                  <span>🕐 ${hora}</span>
+                  ${ev.local_nome ? `<span>📍 ${esc(ev.local_nome)}</span>` : ''}
+                  ${ev.bairro ? `<span>📌 ${esc(ev.bairro)}</span>` : ''}
+                  ${ev.cidade ? `<span>${esc(ev.cidade)}</span>` : ''}
+                  <span class="badge-tipo" style="background:${cfg.cor}20;color:${cfg.cor};">
+                    ${cfg.label}
+                  </span>
+                </div>
+                ${ev.descricao ? `<div class="evento-desc">${esc(ev.descricao)}</div>` : ''}
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`
+    ).join('');
+  }
+
+  // Navegação de meses
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    mesAtual.setMonth(mesAtual.getMonth() - 1);
+    carregarEventos();
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    mesAtual.setMonth(mesAtual.getMonth() + 1);
+    carregarEventos();
+  });
+</script>
+
+</body>
+</html>
