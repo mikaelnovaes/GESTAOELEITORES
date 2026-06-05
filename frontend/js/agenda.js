@@ -324,8 +324,11 @@ async function openAgenda() {
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-novo-evento')?.addEventListener('click', () => abrirFormEvento());
 
-    document.querySelectorAll('[data-close="modal-agenda-form"]').forEach(btn =>
-      btn.addEventListener('click', () => document.getElementById('modal-agenda-form')?.classList.remove('show'))
+ document.querySelectorAll('[data-close="modal-agenda-form"]').forEach(btn =>
+      btn.addEventListener('click', () => {
+        document.getElementById('modal-agenda-form')?.classList.remove('show');
+        document.getElementById('ag-erro')?.remove();
+      })
     );
 
     document.getElementById('btn-agenda-salvar')?.addEventListener('click', async () => {
@@ -344,8 +347,25 @@ async function openAgenda() {
         notificar_eleitores: document.getElementById('ag-notificar').checked,
       };
 
-      if (!data.titulo) { window.showToast('Título obrigatório.', 'error'); return; }
-      if (!data.data_inicio) { window.showToast('Data de início obrigatória.', 'error'); return; }
+ // Valida e mostra erro DENTRO do modal
+      const erroEl = document.getElementById('ag-erro');
+      if (erroEl) erroEl.remove(); // limpa erro anterior
+
+      if (!data.titulo || !data.data_inicio) {
+        const msgs = [];
+        if (!data.titulo) msgs.push('Título é obrigatório.');
+        if (!data.data_inicio) msgs.push('Data e hora de início são obrigatórias.');
+        
+        const erro = document.createElement('div');
+        erro.id = 'ag-erro';
+        erro.style.cssText = 'background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:0.6rem 1rem;font-size:0.85rem;margin-bottom:0.5rem;';
+        erro.textContent = msgs.join(' ');
+        
+        // Insere no topo do modal-body
+        const modalBody = document.querySelector('#modal-agenda-form .modal-body');
+        if (modalBody) modalBody.insertBefore(erro, modalBody.firstChild);
+        return;
+      }
 
       try {
         if (id) {
