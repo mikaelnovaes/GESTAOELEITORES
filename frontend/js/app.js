@@ -1,6 +1,6 @@
 /**
  * frontend/js/app.js v3.1
- * - Suporte a perfil MASTER (redireciona pra /master após login)
+ * - Suporte a perfil MASTER (redireciona pra /master após login) 
  * - Suporte a modo ACTING (master personificando tenant)
  * - Header X-Acting-Tenant enviado quando master está em modo acting
  * - Banner amarelo no topo quando em modo acting
