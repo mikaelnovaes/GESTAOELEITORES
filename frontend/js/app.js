@@ -623,7 +623,26 @@ function openDetailModal(e) {
       </div>
     </div>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1.4rem;">
-   ${[['Telefone', e.telefone], ['E-mail', e.email], ['Liderança', e.lideranca_nome || null], ['Endereço', [e.endereco, e.numero].filter(Boolean).join(', ')], ['Bairro', e.bairro], ['Cidade', e.cidade], ['Título', e.titulo_eleitor], ['Seção', e.secao], ['Local', e.escola_votacao]].filter(([,v]) => v).map(([label,value]) => `
+  ${(() => {
+      const INTENCAO_LABELS = {
+        confirmado: '✅ Confirmado',
+        provavel:   '🟢 Provável',
+        indeciso:   '🟡 Indeciso',
+        risco:      '🔴 Em Risco',
+      };
+      const intencaoTexto = INTENCAO_LABELS[e.intencao_voto] || '⬜ Indefinido';
+      return [
+        ['Telefone', e.telefone],
+        ['E-mail', e.email],
+        ['Liderança', e.lideranca_nome || null],
+        ['Intenção de Voto', intencaoTexto],
+        ['Endereço', [e.endereco, e.numero].filter(Boolean).join(', ')],
+        ['Bairro', e.bairro],
+        ['Cidade', e.cidade],
+        ['Título', e.titulo_eleitor],
+        ['Seção', e.secao],
+        ['Local', e.escola_votacao],
+      ].filter(([,v]) => v).map(([label,value]) => `
         <div style="background:var(--cream);padding:0.6rem 0.8rem;border-radius:4px;">
           <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:0.2rem;">${escapeHtml(label)}</div>
           <div style="font-size:0.9rem;color:var(--ink);">${escapeHtml(value)}</div>
