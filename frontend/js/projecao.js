@@ -45,14 +45,23 @@
   }
 
   function renderHTML(r, bairros, liderancas) {
-    const metaPct = r.pct_meta_otimista ?? '—';
+ const metaPct = r.pct_meta_otimista != null
+  ? (r.pct_meta_otimista === 0 && r.projecao_otimista > 0 ? '<1' : r.pct_meta_otimista)
+  : '—';
     const metaBar = r.pct_meta_otimista != null
       ? `<div style="background:var(--line);border-radius:99px;height:10px;margin-top:0.5rem;">
            <div style="background:var(--gold);height:10px;border-radius:99px;width:${Math.min(r.pct_meta_otimista,100)}%;transition:width 0.6s;"></div>
          </div>` : '';
 
     const cardIntencao = Object.entries(INTENCAO_CONFIG).map(([k, v]) => {
-      const count = k === 'null' ? r.sem_classificacao : (r[k === 'risco' ? 'em_risco' : k + 's'] ?? r[k] ?? 0);
+      const MAP = {
+  confirmado: 'confirmados',
+  provavel:   'provaveis',
+  indeciso:   'indecisos',
+  risco:      'em_risco',
+  contra:     'contra',
+};
+const count = k === 'null' ? r.sem_classificacao : (r[MAP[k]] ?? 0);
       const pct = r.total > 0 ? Math.round(count / r.total * 100) : 0;
       return `
         <div class="proj-card" data-intencao="${k}" style="cursor:pointer;border-left:3px solid ${v.cor};">
@@ -72,7 +81,7 @@
       return `
         <tr>
           <td>${window.escapeHtml(l.lideranca)}</td>
-          <td style="text-align:center;">${l.cadastrados}</td>
+        <td style="text-align:center;">${l.total}</td>
           <td style="text-align:center;color:#22c55e;font-weight:600;">${l.confirmados}</td>
           <td style="text-align:center;color:#84cc16;">${l.provaveis}</td>
           <td style="text-align:center;color:#f97316;">${l.em_risco}</td>
@@ -297,10 +306,13 @@
     listaEl.querySelectorAll('.sel-intencao').forEach(sel => {
       sel.addEventListener('change', async () => {
         try {
-          await window.API.fetch(`/projecao/eleitor/${sel.dataset.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ intencao_voto: sel.value }),
-          });
+         await window.API.fetch(`/projecao/eleitor/${sel.dataset.id}`, {
+  method: 'PATCH',
+  body: JSON.stringify({
+    intencao_voto: sel.value,
+    ultimo_contato: new Date().toISOString(),
+  }),
+});
           window.showToast('Intenção atualizada.', 'success');
         } catch (err) {
           window.showToast(err.message, 'error');
