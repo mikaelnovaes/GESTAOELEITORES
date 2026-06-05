@@ -24,12 +24,7 @@
   /* ══════════════════════════════════════════════════════
      ABRIR
   ══════════════════════════════════════════════════════ */
-  async function openAgenda() {
-    window.switchView('agenda');
-    await carregarEventos();
-    renderCalendario();
-    renderListaEventos();
-  }
+async function openAgenda
 
   async function carregarEventos() {
     try {
@@ -216,7 +211,9 @@
   function renderEventoCard(ev) {
     const cfg = TIPO_CONFIG[ev.tipo] || TIPO_CONFIG.outro;
     const hora = new Date(ev.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const linkPublico = `${window.location.origin}/agenda-publica.html?token=${ev.token_publico}`;
+   const linkPublico = window._agendaLinkPublico
+  ? `${window.location.origin}/agenda-publica.html?token=${window._agendaLinkPublico}`
+  : null;
 
     return `
       <div style="background:var(--cream);border-radius:6px;padding:0.9rem 1rem;margin-bottom:0.5rem;
@@ -281,6 +278,32 @@
     modal.classList.add('show');
   }
 
+  function renderBotaoLinkMes() {
+  const actionsEl = document.getElementById('agenda-header-actions');
+  if (!actionsEl || !window._agendaLinkPublico) return;
+
+  const mes  = mesAtual.getMonth() + 1;
+  const ano  = mesAtual.getFullYear();
+  const link = `${window.location.origin}/agenda-publica.html?token=${window._agendaLinkPublico}&mes=${mes}&ano=${ano}`;
+  const nomeMes = mesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+  actionsEl.innerHTML = `
+    <button class="btn btn-secondary" id="btn-novo-evento" style="font-size:0.82rem;">+ Novo Evento</button>
+    <button class="btn btn-secondary" id="btn-copiar-link-mes" style="font-size:0.82rem;" data-link="${link}">
+      🔗 Compartilhar ${nomeMes}
+    </button>
+  `;
+
+  document.getElementById('btn-novo-evento')?.addEventListener('click', () => abrirFormEvento());
+  document.getElementById('btn-copiar-link-mes')?.addEventListener('click', (e) => {
+    const l = e.currentTarget.dataset.link;
+    navigator.clipboard?.writeText(l).then(() => {
+      window.showToast('✅ Link copiado! Envie para suas lideranças.', 'success');
+    });
+  });
+}
+
+  
   window.GEAgenda = { openAgenda, abrirFormEvento };
 
   /* ══════════════════════════════════════════════════════
