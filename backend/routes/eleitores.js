@@ -80,7 +80,7 @@ const countR = await db.query(
         `SELECT e.id, e.nome, e.data_nascimento, e.telefone, e.email,
                 e.endereco, e.numero, e.bairro, e.cidade,
                 e.titulo_eleitor, e.secao, e.escola_votacao,
-                e.foto_url, e.lideranca_id, e.criado_em, e.atualizado_em,
+                e.foto_url, e.lideranca_id, e.criado_em, e.atualizado_em, e.intencao_voto,
                 l.nome AS lideranca_nome
          FROM eleitores e
          LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
@@ -130,7 +130,36 @@ router.get('/meta/stats', async (req, res) => {
   }
 });
 
-
+/* ── GET /api/eleitores/intencoes ────────────────────────── */
+router.get('/intencoes', async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT
+        COUNT(*)::INT AS total,
+        COUNT(*) FILTER (WHERE intencao_voto = 'confirmado')::INT AS confirmados,
+        COUNT(*) FILTER (WHERE intencao_voto = 'provavel')::INT   AS provaveis,
+        COUNT(*) FILTER (WHERE intencao_voto = 'indeciso')::INT   AS indecisos,
+        COUNT(*) FILTER (WHERE intencao_voto = 'risco')::INT      AS em_risco,
+        COUNT(*) FILTER (WHERE intencao_voto IS NULL)::INT        AS sem_registro
+      FROM eleitores
+      WHERE tenant_id = $1 AND ativo = TRUE
+    `, [req.user.tenant_id]);
+    const row = r.rows[0];
+    res.json({
+      total:        row.total,
+      confirmados:  row.confirmados,
+      provaveis:    row.provaveis,
+      indecisos:    row.indecisos,
+      em_risco:     row.em_risco,
+      sem_registro: row.sem_registro,
+      com_intencao: row.total - row.sem_registro,
+      pct_mapeado:  row.total > 0 ? Math.round((row.total - row.sem_registro) / row.total * 100) : 0,
+    });
+  } catch (err) {
+    console.error('[ELEITORES] GET /intencoes:', err);
+    res.status(500).json({ error: 'Erro ao buscar intenções de voto.' });
+  }
+});
 /* ── GET /api/eleitores/:id ──────────────────────────────── */
 router.get('/:id',
   [param('id').isInt({ min: 1 }).toInt()],
@@ -141,7 +170,7 @@ router.get('/:id',
         `SELECT e.id, e.nome, e.data_nascimento, e.telefone, e.email,
                 e.endereco, e.numero, e.bairro, e.cidade,
                 e.titulo_eleitor, e.secao, e.escola_votacao, e.foto_url,
-                e.lideranca_id, e.criado_em, e.atualizado_em,
+                e.lideranca_id, e.criado_em, e.atualizado_em, e.intencao_voto,
                 l.nome AS lideranca_nome
          FROM eleitores e
          LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
@@ -178,11 +207,16 @@ router.post('/',
     if (hasErrors(req, res)) return;
     const d = req.body;
     try {
+    const INTENCOES_VALIDAS = ['confirmado', 'provavel', 'indeciso', 'risco'];
+      const intencao_voto_new = d.intencao_voto && INTENCOES_VALIDAS.includes(d.intencao_voto)
+        ? d.intencao_voto : null;
+
       const r = await db.query(
         `INSERT INTO eleitores
            (tenant_id, nome, data_nascimento, telefone, email, endereco, numero,
-            bairro, cidade, titulo_eleitor, secao, escola_votacao, lideranca_id, criado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            bairro, cidade, titulo_eleitor, secao, escola_votacao, lideranca_id,
+            intencao_voto, criado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
          RETURNING id, criado_em`,
         [
           req.user.tenant_id,
@@ -198,6 +232,7 @@ router.post('/',
           clean(d.secao, 10),
           clean(d.escola_votacao, 200),
           d.lideranca_id ? Number(d.lideranca_id) : null,
+          intencao_voto_new,
           req.user.id,
         ]
       );
@@ -225,14 +260,19 @@ router.put('/:id',
     if (hasErrors(req, res)) return;
     const d = req.body;
     try {
+     const INTENCOES_VALIDAS = ['confirmado', 'provavel', 'indeciso', 'risco'];
+      const intencao_voto = d.intencao_voto && INTENCOES_VALIDAS.includes(d.intencao_voto)
+        ? d.intencao_voto : null;
+
       const r = await db.query(
         `UPDATE eleitores SET
            nome = $1, data_nascimento = $2, telefone = $3,
            email = $4, endereco = $5, numero = $6,
            bairro = $7, cidade = $8, titulo_eleitor = $9,
            secao = $10, escola_votacao = $11, lideranca_id = $12,
+           intencao_voto = $13,
            atualizado_em = NOW()
-         WHERE id = $13 AND tenant_id = $14 AND ativo = TRUE
+         WHERE id = $14 AND tenant_id = $15 AND ativo = TRUE
          RETURNING id`,
         [
           clean(d.nome, 200),
@@ -247,6 +287,7 @@ router.put('/:id',
           clean(d.secao, 10),
           clean(d.escola_votacao, 200),
           d.lideranca_id || null,
+          intencao_voto,
           req.params.id,
           req.user.tenant_id,
         ]
