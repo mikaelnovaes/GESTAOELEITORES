@@ -621,8 +621,7 @@ function openDetailModal(e) {
         <div style="font-family:'Fraunces',serif;font-size:1.4rem;color:var(--navy);font-weight:600;">${escapeHtml(e.nome)}</div>
         ${e.data_nascimento ? `<div style="color:var(--muted);font-size:0.88rem;margin-top:0.2rem;">Nascimento: ${formatDate(e.data_nascimento)} (${calculateAge(e.data_nascimento)} anos)</div>` : ''}
       </div>
-    </div>
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1.4rem;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1.4rem;">
   ${(() => {
       const INTENCAO_LABELS = {
         confirmado: '✅ Confirmado',
@@ -646,7 +645,8 @@ function openDetailModal(e) {
         <div style="background:var(--cream);padding:0.6rem 0.8rem;border-radius:4px;">
           <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:0.2rem;">${escapeHtml(label)}</div>
           <div style="font-size:0.9rem;color:var(--ink);">${escapeHtml(value)}</div>
-        </div>`).join('')}
+        </div>`).join('');
+    })()}
     </div>`;
   document.getElementById('btn-modal-edit')?.setAttribute('data-edit-id', e.id);
   document.getElementById('btn-modal-delete')?.setAttribute('data-delete-id', e.id);
