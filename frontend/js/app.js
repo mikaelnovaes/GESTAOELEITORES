@@ -467,6 +467,7 @@ function renderList() {
         <th>Nome Completo</th>
         <th>Endereço, Nº — Bairro</th>
         <th>Cidade</th>
+        <th>Intenção</th>
         <th>Telefone</th>
         <th style="text-align:right">Ações</th>
       </tr>
@@ -483,6 +484,7 @@ function renderList() {
             <td><div class="row-name">${escapeHtml(e.nome)}</div><div class="row-meta">${escapeHtml(e.cidade || '—')}</div></td>
             <td>${escapeHtml(endereco)}</td>
             <td>${cidade}</td>
+            <td>${window.GEIntencao?.renderBadge(e.intencao_voto, e.id) || '—'}</td>
             <td>${escapeHtml(e.telefone || '—')}</td>
             <td><div class="actions-cell">
               <button class="icon-btn" data-act="view"   data-id="${e.id}">Ver</button>
@@ -556,7 +558,9 @@ document.getElementById('eleitor-form')?.addEventListener('submit', async (e) =>
     titulo_eleitor:  document.getElementById('f-titulo')?.value     || null,
     secao:           document.getElementById('f-secao')?.value      || null,
     escola_votacao:  document.getElementById('f-escola')?.value     || null,
-    lideranca_id:    lidVal ? Number(lidVal) : null,
+  lideranca_id:    lidVal ? Number(lidVal) : null,
+    intencao_voto:   document.getElementById('f-intencao')?.value || null,
+  };
   };
   try {
     if (id) { await API.put(`/eleitores/${id}`, data); showToast('Eleitor atualizado!', 'success'); }
@@ -590,6 +594,8 @@ async function openEleitorForm(eleitor) {
       delete document.getElementById('eleitor-id').dataset.lidId;
     }
   }
+ document.getElementById('f-intencao').value = eleitor?.intencao_voto || '';
+
   await populateLiderancaDropdown();
   switchView('new');
   setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
