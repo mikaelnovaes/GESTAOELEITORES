@@ -24,7 +24,19 @@
   /* ══════════════════════════════════════════════════════
      ABRIR
   ══════════════════════════════════════════════════════ */
-async function openAgenda
+async function openAgenda() {
+  window.switchView('agenda');
+  try {
+    const lp = await window.API.get('/agenda/link-publico');
+    window._agendaLinkPublico = lp.token || null;
+  } catch (e) {
+    window._agendaLinkPublico = null;
+  }
+  await carregarEventos();
+  renderCalendario();
+  renderListaEventos();
+  renderBotaoLinkMes();
+}
 
   async function carregarEventos() {
     try {
@@ -234,7 +246,7 @@ async function openAgenda
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
               <button class="icon-btn" data-agenda-edit="${ev.id}" style="font-size:0.75rem;">Editar</button>
               ${ev.bairro || ev.lideranca_id ? `<button class="icon-btn" data-agenda-notif="${ev.id}" style="font-size:0.75rem;">📱 Notif.</button>` : ''}
-              <button class="icon-btn" data-agenda-link="${linkPublico}" style="font-size:0.75rem;">🔗 Link</button>
+             ${linkPublico ? `<button class="icon-btn" data-agenda-link="${linkPublico}" style="font-size:0.75rem;">🔗 Link</button>` : ''}
               <button class="icon-btn danger" data-agenda-delete="${ev.id}" style="font-size:0.75rem;">Excluir</button>
             </div>
           </div>
