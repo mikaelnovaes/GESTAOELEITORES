@@ -661,21 +661,26 @@
 </section>
 <!-- ═══════════════════ MODAL: FORMULÁRIO DE EVENTO ═══════════════════ -->
 <div class="modal-overlay" id="modal-agenda-form">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:600px;">
     <div class="modal-header">
       <div class="modal-title" id="agenda-form-titulo-modal">Novo Evento</div>
       <button class="modal-close" data-close="modal-agenda-form">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem;">
       <input type="hidden" id="ag-id">
+
+      <!-- Linha 1: Título -->
       <div class="form-group">
-        <label>Título *</label>
-        <input type="text" id="ag-titulo" maxlength="300" placeholder="Ex: Comício no Centro">
+        <label for="ag-titulo">Título *</label>
+        <input type="text" id="ag-titulo" maxlength="300" placeholder="Ex: Comício no Centro"
+               style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
       </div>
+
+      <!-- Linha 2: Tipo + Liderança -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
         <div class="form-group">
-          <label>Tipo</label>
-          <select id="ag-tipo">
+          <label for="ag-tipo">Tipo</label>
+          <select id="ag-tipo" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
             <option value="evento">🎯 Evento</option>
             <option value="reuniao">🤝 Reunião</option>
             <option value="visita">🚗 Visita</option>
@@ -685,48 +690,67 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Liderança vinculada</label>
-          <select id="ag-lideranca"><option value="">— Nenhuma —</option></select>
+          <label for="ag-lideranca">Liderança vinculada</label>
+          <select id="ag-lideranca" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
+            <option value="">— Nenhuma —</option>
+          </select>
         </div>
       </div>
+
+      <!-- Linha 3: Data Início + Data Fim -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
         <div class="form-group">
-          <label>Início *</label>
-          <input type="datetime-local" id="ag-data-inicio">
+          <label for="ag-data-inicio">Data e Hora de Início *</label>
+          <input type="datetime-local" id="ag-data-inicio"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
         </div>
         <div class="form-group">
-          <label>Fim (opcional)</label>
-          <input type="datetime-local" id="ag-data-fim">
+          <label for="ag-data-fim">Data e Hora de Fim</label>
+          <input type="datetime-local" id="ag-data-fim"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
         </div>
       </div>
-      <div class="form-group">
-        <label>Local (nome)</label>
-        <input type="text" id="ag-local-nome" maxlength="300" placeholder="Ex: Praça Central">
-      </div>
-      <div class="form-group">
-        <label>Endereço</label>
-        <input type="text" id="ag-local-endereco" maxlength="400">
-      </div>
+
+      <!-- Linha 4: Local + Endereço -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
         <div class="form-group">
-          <label>Bairro</label>
-          <input type="text" id="ag-bairro" maxlength="100">
+          <label for="ag-local-nome">Local (nome)</label>
+          <input type="text" id="ag-local-nome" maxlength="300" placeholder="Ex: Praça Central"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
         </div>
         <div class="form-group">
-          <label>Cidade</label>
-          <input type="text" id="ag-cidade" maxlength="100">
+          <label for="ag-local-endereco">Endereço</label>
+          <input type="text" id="ag-local-endereco" maxlength="400"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
         </div>
       </div>
-      <div class="form-group">
-        <label>Descrição</label>
-        <textarea id="ag-descricao" rows="3" maxlength="2000"></textarea>
+
+      <!-- Linha 5: Bairro + Cidade -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+        <div class="form-group">
+          <label for="ag-bairro">Bairro</label>
+          <input type="text" id="ag-bairro" maxlength="100"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
+        </div>
+        <div class="form-group">
+          <label for="ag-cidade">Cidade</label>
+          <input type="text" id="ag-cidade" maxlength="100"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;">
+        </div>
       </div>
+
+      <!-- Linha 6: Descrição -->
       <div class="form-group">
-        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-          <input type="checkbox" id="ag-notificar">
-          <span>Marcar para notificar eleitores via WhatsApp</span>
-        </label>
+        <label for="ag-descricao">Descrição</label>
+        <textarea id="ag-descricao" rows="3" maxlength="2000"
+                  style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
       </div>
+
+      <!-- Linha 7: Notificar -->
+      <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.88rem;color:var(--ink);">
+        <input type="checkbox" id="ag-notificar">
+        <span>Marcar para notificar eleitores via WhatsApp</span>
+      </label>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" data-close="modal-agenda-form">Cancelar</button>
