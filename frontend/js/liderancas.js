@@ -322,7 +322,6 @@ const eleitoresHTML = (l.eleitores_vinculados && l.eleitores_vinculados.length)
                </tr>`).join('')}</tbody>
            </table>`
         : `<div class="empty" style="padding:1rem;font-size:0.88rem;color:var(--muted);">Nenhum eleitor vinculado a esta liderança ainda.</div>`;
-
       body.innerHTML = `
         <div class="lid-detail-grid">
           <div class="lid-detail-field"><strong>Nome:</strong> ${esc(l.nome)}</div>
