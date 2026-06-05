@@ -1044,6 +1044,15 @@ document.getElementById('btn-check-cidades')?.addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-check-enderecos')?.addEventListener('click', () => {
+  if (window.GEEnderecos?.openModal) {
+    window.GEEnderecos.openModal();
+  } else {
+    showToast('Módulo de endereços não carregado.', 'error');
+  }
+});
+
+function renderDuplicatesModal(groups) {
 function renderDuplicatesModal(groups) {
   const body   = document.getElementById('dup-modal-body');
   const footer = document.getElementById('dup-modal-footer');
