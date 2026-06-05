@@ -303,14 +303,22 @@
       const cob = vinc + naoVinc;
       const pct = meta > 0 ? Math.round((cob / meta) * 100) : null;
 
-      const eleitoresHTML = (l.eleitores_vinculados && l.eleitores_vinculados.length)
-        ? `<table style="margin-top:0.5rem;">
-             <thead><tr><th>Nome</th><th>Telefone</th><th>Bairro / Cidade</th></tr></thead>
+const eleitoresHTML = (l.eleitores_vinculados && l.eleitores_vinculados.length)
+        ? `<table style="margin-top:0.5rem;width:100%;font-size:0.83rem;border-collapse:collapse;">
+             <thead>
+               <tr style="background:var(--cream);">
+                 <th style="padding:6px 10px;text-align:left;">Nome</th>
+                 <th style="padding:6px 10px;text-align:left;">Telefone</th>
+                 <th style="padding:6px 10px;text-align:left;">Bairro / Cidade</th>
+                 <th style="padding:6px 10px;text-align:left;">Intenção</th>
+               </tr>
+             </thead>
              <tbody>${l.eleitores_vinculados.map(e => `
-               <tr>
-                 <td>${esc(e.nome)}</td>
-                 <td>${esc(e.telefone || '—')}</td>
-                 <td>${esc([e.bairro, e.cidade].filter(Boolean).join(' / ') || '—')}</td>
+               <tr style="border-bottom:1px solid var(--line);">
+                 <td style="padding:6px 10px;font-weight:500;">${esc(e.nome)}</td>
+                 <td style="padding:6px 10px;color:var(--muted);">${esc(e.telefone || '—')}</td>
+                 <td style="padding:6px 10px;color:var(--muted);">${esc([e.bairro, e.cidade].filter(Boolean).join(' / ') || '—')}</td>
+                 <td style="padding:6px 10px;">${window.GEIntencao?.renderBadge(e.intencao_voto, e.id) || '<span style="color:var(--muted);font-size:0.78rem;">—</span>'}</td>
                </tr>`).join('')}</tbody>
            </table>`
         : `<div class="empty" style="padding:1rem;font-size:0.88rem;color:var(--muted);">Nenhum eleitor vinculado a esta liderança ainda.</div>`;
