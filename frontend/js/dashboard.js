@@ -149,33 +149,21 @@
         </div>
         <button class="btn btn-secondary" id="btn-dash-refresh" style="font-size:0.78rem;padding:0.35rem 0.7rem;">🔄 Atualizar</button>
       </div>
-
-      <!-- FILTROS compactos -->
-      <div class="panel" style="padding:0.7rem 0.9rem;margin-bottom:0.7rem;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.5rem;align-items:end;">
-          <div>
-            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Bairro</label>
-            <select id="filtro-dash-bairro" style="width:100%;font-size:0.8rem;padding:0.3rem;">
-              <option value="">— Todos —</option>
-              ${(d.filtros_disponiveis?.bairros || []).map(b => `<option value="${esc(b)}" ${filtros.bairro === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Cidade</label>
-            <select id="filtro-dash-cidade" style="width:100%;font-size:0.8rem;padding:0.3rem;">
-              <option value="">— Todas —</option>
-              ${(d.filtros_disponiveis?.cidades || []).map(c => `<option value="${esc(c)}" ${filtros.cidade === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.68rem;color:var(--muted);margin-bottom:0.15rem;">Liderança</label>
-            <select id="filtro-dash-lideranca" style="width:100%;font-size:0.8rem;padding:0.3rem;">
-              <option value="">— Todas —</option>
-              ${(d.filtros_disponiveis?.liderancas || []).map(l => `<option value="${l.id}" ${String(filtros.lideranca_id) === String(l.id) ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
-            </select>
-          </div>
-          <button class="btn btn-secondary" id="btn-dash-clear-filters" style="font-size:0.74rem;padding:0.3rem 0.6rem;">Limpar filtros</button>
-        </div>
+<!-- FILTROS — padrão do sistema -->
+      <div class="filters" style="margin-bottom:0.7rem;">
+        <select id="filtro-dash-bairro">
+          <option value="">Todos os bairros</option>
+          ${(d.filtros_disponiveis?.bairros || []).map(b => `<option value="${esc(b)}" ${filtros.bairro === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}
+        </select>
+        <select id="filtro-dash-cidade">
+          <option value="">Todas as cidades</option>
+          ${(d.filtros_disponiveis?.cidades || []).map(c => `<option value="${esc(c)}" ${filtros.cidade === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+        <select id="filtro-dash-lideranca">
+          <option value="">Todas as lideranças</option>
+          ${(d.filtros_disponiveis?.liderancas || []).map(l => `<option value="${l.id}" ${String(filtros.lideranca_id) === String(l.id) ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
+        </select>
+        <button class="btn btn-secondary" id="btn-dash-clear-filters">Limpar filtros</button>
       </div>
 
       <!-- KPIs compactos -->
