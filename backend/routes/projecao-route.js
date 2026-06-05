@@ -232,7 +232,7 @@ router.get('/eleitores',
         LEFT JOIN liderancas l ON l.id = e.lideranca_id AND l.tenant_id = e.tenant_id
         WHERE ${conds.join(' AND ')}
         ORDER BY e.nome ASC
-        LIMIT 500
+        LIMIT 20000
       `, params);
 
       res.json(r.rows.map(row => ({ ...row, id: Number(row.id) })));
