@@ -125,6 +125,16 @@
                 <option value="">— Nenhuma —</option>
               </select>
             </div>
+            <div class="form-group">
+  <label for="f-intencao">Intenção de Voto</label>
+  <select id="f-intencao" class="form-control">
+    <option value="">— Não registrado —</option>
+    <option value="confirmado">✅ Confirmado — pode contar com o voto</option>
+    <option value="provavel">🟢 Provável — deve votar</option>
+    <option value="indeciso">🟡 Indeciso — ainda não decidiu</option>
+    <option value="risco">🔴 Em Risco — pode votar no adversário</option>
+  </select>
+</div>
           </div>
         </form>
       </div>
@@ -983,7 +993,7 @@
 <script src="js/app.js?v=9"></script>
 <script src="js/bairros.js?v=1"></script>
 <script src="js/sidebar.js?v=2"></script>
-<script src="js/cidades.js?v=1"></script>
+<script src="js/cidades.js?v=2"></script>
 <script src="js/intencao.js?v=1"></script>
 </body>
 </html>
