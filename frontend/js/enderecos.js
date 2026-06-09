@@ -133,12 +133,10 @@
         // Eleitores com grafia diferente da canônica = problemáticos
         const comProblema = todosEleitores.filter(e => e.endereco.trim() !== grafiaCanonica);
 
-        const grafiaLimpa = grafiaCanonica.replace(/,?\s*\d+\s*$/, '').trim();
-
-      if (comProblema.length > 0) {
-        problemas.push({
-          tipo: 'grafia_similar',
-          grafia_canonica: grafiaLimpa,
+        if (comProblema.length > 0) {
+          problemas.push({
+            tipo: 'grafia_similar',
+            grafia_canonica: grafiaCanonica,
             total_corretos: grafias[0][1],
             variacoes: grafias.slice(1),
             eleitores_problema: comProblema,
