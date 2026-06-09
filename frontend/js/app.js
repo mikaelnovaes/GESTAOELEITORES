@@ -230,7 +230,9 @@ function showApp(user) {
   });
 
 renderActingBanner();
-switchView('dashboard');
+// Restaura a última view visitada (ou dashboard na primeira vez)
+const lastView = sessionStorage.getItem('ge_last_view') || 'dashboard';
+switchView(lastView);
 }
 
 function renderActingBanner() {
@@ -352,9 +354,12 @@ function switchView(viewName) {
     showToast('Acesso restrito a administradores.', 'error'); return;
   }
 
-  views.forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
+views.forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
   navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === viewName));
   document.getElementById('main-content')?.scrollTo(0, 0);
+
+  // Salva a view atual para restaurar ao atualizar a página (F5)
+  try { sessionStorage.setItem('ge_last_view', viewName); } catch(e) {}
 
 const handlers = {
     list:              () => { syncFromAPI().then(renderList); },
