@@ -1115,7 +1115,7 @@ window.addEventListener('load', async () => {
 
   // Esconde tudo enquanto decide login vs app (evita flash da tela de login)
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').classList.remove('show');
+
 
   const user = loadSession();
   if (user) {
