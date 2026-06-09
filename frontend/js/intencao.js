@@ -157,9 +157,13 @@
   async function salvarIntencao(eleitorId, novaIntencao, btnElement) {
     document.getElementById('intencao-popup')?.remove();
 
-    try {
-      await window.API.put(`/eleitores/${eleitorId}`, {
-        intencao_voto: novaIntencao || null
+  try {
+      await window.API.fetch(`/projecao/eleitor/${eleitorId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          intencao_voto: novaIntencao || '',
+          ultimo_contato: new Date().toISOString(),
+        }),
       });
 
       // Atualiza o badge sem recarregar a lista toda
