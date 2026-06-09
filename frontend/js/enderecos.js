@@ -87,70 +87,97 @@
   }
 
   /* ══════════════════════════════════════════════════════
+     LIMPA O NÚMERO DO ENDEREÇO
+     "Rua Ubatuba, 678" → "Rua Ubatuba"
+     "Av. Brasil 1200"  → "Av. Brasil"
+     O número fica no campo separado e NUNCA é alterado.
+  ══════════════════════════════════════════════════════ */
+  function limparNumero(endereco) {
+    return String(endereco || '')
+      .replace(/,?\s*n[º°.]?\s*\d+.*$/i, '')   // ", nº 123" no fim
+      .replace(/,?\s*\d+\s*$/,'')              // ", 123" ou " 123" no fim
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /* ══════════════════════════════════════════════════════
      DETECÇÃO DE PROBLEMAS
+     IMPORTANTE: compara SOMENTE o nome da rua (sem número).
+     Números diferentes na MESMA rua NÃO são problema.
   ══════════════════════════════════════════════════════ */
   function detectarProblemas(eleitores) {
-    // Agrupa por "tipo de rua + nome normalizado"
+    // Agrupa por nome da rua SEM número
     const grupos = {};
 
     eleitores.forEach(e => {
-      const endNorm = normalizar(e.endereco);
+      const ruaSemNum = limparNumero(e.endereco);
+      const endNorm = normalizar(ruaSemNum);
+      if (!endNorm) return;
       if (!grupos[endNorm]) grupos[endNorm] = [];
-      grupos[endNorm].push(e);
+      grupos[endNorm].push({ eleitor: e, ruaSemNum });
     });
 
-    // Encontra grupos com variações diferentes
     const problemas = [];
-
-    // 1. Endereços com grafias similares mas diferentes (prováveis erros)
     const chaves = Object.keys(grupos);
     const visitados = new Set();
 
+    // 1. Grafias similares (prováveis erros de digitação na RUA)
     chaves.forEach(chave => {
       if (visitados.has(chave)) return;
 
       const similares = chaves.filter(outra => {
         if (outra === chave || visitados.has(outra)) return false;
-        return similaridade(chave, outra) >= 0.80;
+        const s = similaridade(chave, outra);
+        // Só agrupa se for MUITO similar mas NÃO idêntico
+        return s >= 0.80 && s < 1;
       });
 
-      if (similares.length > 0) {
-        const todasVariacoes = [chave, ...similares];
-        todasVariacoes.forEach(c => visitados.add(c));
+      if (similares.length === 0) return;
 
-        // Agrupa todos os eleitores das variações
-        const todosEleitores = todasVariacoes.flatMap(c => grupos[c]);
+      const todasVariacoes = [chave, ...similares];
+      todasVariacoes.forEach(c => visitados.add(c));
 
-        // Encontra a grafia canônica (mais frequente)
-        const contagem = {};
-        todosEleitores.forEach(e => {
-          const end = e.endereco.trim();
-          contagem[end] = (contagem[end] || 0) + 1;
+      // Junta todos os itens das variações
+      const todosItens = todasVariacoes.flatMap(c => grupos[c]);
+
+      // Conta as GRAFIAS DA RUA (sem número!) para achar a canônica
+      const contagem = {};
+      todosItens.forEach(it => {
+        const rua = it.ruaSemNum;
+        contagem[rua] = (contagem[rua] || 0) + 1;
+      });
+      const grafias = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+
+      // Se só existe UMA grafia distinta, não há erro — pula
+      if (grafias.length <= 1) return;
+
+      const grafiaCanonica = grafias[0][0];        // rua mais comum (sem número)
+      const normCanonica = normalizar(grafiaCanonica);
+
+      // Eleitores cuja RUA difere da canônica = problemáticos
+      const comProblema = todosItens
+        .filter(it => normalizar(it.ruaSemNum) !== normCanonica)
+        .map(it => it.eleitor);
+
+      if (comProblema.length > 0) {
+        problemas.push({
+          tipo: 'grafia_similar',
+          grafia_canonica: grafiaCanonica,       // SEM número
+          total_corretos: grafias[0][1],
+          variacoes: grafias.slice(1),
+          eleitores_problema: comProblema,
+          total_afetados: comProblema.length,
         });
-        const grafias = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
-        const grafiaCanonica = grafias[0][0]; // mais comum
-
-        // Eleitores com grafia diferente da canônica = problemáticos
-        const comProblema = todosEleitores.filter(e => e.endereco.trim() !== grafiaCanonica);
-
-        if (comProblema.length > 0) {
-          problemas.push({
-            tipo: 'grafia_similar',
-            grafia_canonica: grafiaCanonica,
-            total_corretos: grafias[0][1],
-            variacoes: grafias.slice(1),
-            eleitores_problema: comProblema,
-            total_afetados: comProblema.length,
-          });
-        }
       }
     });
 
     // 2. Endereços sem o tipo (sem "Rua", "Av.", etc.)
     const semTipo = eleitores.filter(e => {
-      const end = e.endereco.trim().toLowerCase();
-      const tipos = ['rua ', 'av ', 'avenida ', 'alameda ', 'travessa ', 'estrada ',
-                     'rod ', 'rodovia ', 'praça ', 'praca ', 'largo ', 'viela '];
+      const end = limparNumero(e.endereco).toLowerCase();
+      if (!end) return false;
+      const tipos = ['rua ', 'av ', 'av. ', 'avenida ', 'alameda ', 'al. ', 'travessa ',
+                     'tv. ', 'estrada ', 'est. ', 'rod ', 'rodovia ', 'praça ', 'praca ',
+                     'largo ', 'viela ', 'rua,', 'avenida,'];
       return !tipos.some(t => end.startsWith(t));
     });
 
@@ -163,7 +190,7 @@
       });
     }
 
-    // 3. Endereços com abreviações inconsistentes (Av. vs Avenida vs AV)
+    // 3. Abreviações inconsistentes (Av. vs Avenida)
     const abrev = detectarAbreviacoes(eleitores);
     problemas.push(...abrev);
 
@@ -182,14 +209,15 @@
     };
 
     eleitores.forEach(e => {
-      const low = e.endereco.trim().toLowerCase();
+      const ruaSemNum = limparNumero(e.endereco);   // remove o número
+      const low = ruaSemNum.toLowerCase();
       let tipoDetectado = null;
-      let nomeRua = e.endereco;
+      let nomeRua = ruaSemNum;
 
       for (const [prefix, tipo] of Object.entries(MAPA_TIPOS)) {
         if (low.startsWith(prefix)) {
           tipoDetectado = tipo;
-          nomeRua = e.endereco.substring(prefix.length).trim();
+          nomeRua = ruaSemNum.substring(prefix.length).trim();
           break;
         }
       }
