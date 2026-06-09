@@ -1113,6 +1113,10 @@ document.addEventListener('click', (ev) => {
 window.addEventListener('load', async () => {
   try { if (window.GESecurity?.RateLimiter) window.GESecurity.RateLimiter.reset('login'); } catch(e) {}
 
+  // Esconde tudo enquanto decide login vs app (evita flash da tela de login)
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.remove('show');
+
   const user = loadSession();
   if (user) {
     // Master sem acting → painel master
