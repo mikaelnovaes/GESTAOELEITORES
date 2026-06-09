@@ -100,6 +100,12 @@
       .trim();
   }
 
+  // Extrai o número embutido no endereço: "Rua Barretoa, 73" → "73"
+  function extrairNumero(endereco) {
+    const m = String(endereco || '').match(/,?\s*n?[º°.]?\s*(\d+)\s*$/i);
+    return m ? m[1] : '';
+  }
+
   /* ══════════════════════════════════════════════════════
      DETECÇÃO DE PROBLEMAS
      IMPORTANTE: compara SOMENTE o nome da rua (sem número).
@@ -536,13 +542,22 @@
     for (const eleitor of eleitores) {
       try {
         // PUT com TODOS os campos obrigatórios + endereco corrigido + numero intacto
+       // Extrai o número que está EMBUTIDO no endereço original (ex: "Rua Barretoa, 73" → "73")
+        const numeroEmbutido = extrairNumero(eleitor.endereco);
+        // Monta o endereço final: nome corrigido + número original preservado
+        const enderecoFinal = numeroEmbutido
+          ? `${novoEndereco}, ${numeroEmbutido}`
+          : novoEndereco;
+
         await window.API.put(`/eleitores/${eleitor.id}`, {
           nome:          eleitor.nome,
           telefone:      eleitor.telefone    || null,
           email:         eleitor.email       || null,
-          data_nascimento: eleitor.data_nascimento || null,
-          endereco:      novoEndereco,           // ← corrigido
-          numero:        eleitor.numero      || null,  // ← mantido intacto
+          data_nascimento: eleitor.data_nascimento
+                             ? String(eleitor.data_nascimento).substring(0, 10)  // só YYYY-MM-DD
+                             : null,
+          endereco:      enderecoFinal,            // ← nome corrigido + número preservado
+          numero:        eleitor.numero      || null,
           bairro:        eleitor.bairro      || null,
           cidade:        eleitor.cidade      || null,
           titulo_eleitor: eleitor.titulo_eleitor || null,
