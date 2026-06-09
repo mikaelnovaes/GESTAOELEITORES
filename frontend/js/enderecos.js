@@ -1,14 +1,12 @@
 /**
- * frontend/js/enderecos.js v1
+ * frontend/js/enderecos.js v2
  * Verificação e padronização de endereços
  *
- * Lógica:
- *  1. Agrupa endereços por similaridade fonética/textual
- *  2. Detecta grafias diferentes para a mesma rua
- *  3. Sugere a grafia mais comum (maioria dos eleitores)
- *  4. Consulta ViaCEP/OpenStreetMap como validação externa
- *  5. Permite aplicar em lote, manual ou ignorar
- *  6. NUNCA altera o campo "numero" — só "endereco"
+ * CORREÇÕES v2:
+ *  - Compara SOMENTE o nome da rua (ignora número) na detecção
+ *  - Ao aplicar, preserva o número embutido no endereço original
+ *  - Corrige data_nascimento para formato YYYY-MM-DD (evita HTTP 400)
+ *  - Números diferentes na mesma rua NÃO são tratados como problema
  *
  * Expõe: window.GEEnderecos.openModal()
  */
@@ -59,7 +57,6 @@
   ══════════════════════════════════════════════════════ */
   async function analisar() {
     const body = document.getElementById('end-body');
-    const footer = document.getElementById('end-footer');
     body.innerHTML = `
       <div style="padding:2.5rem;text-align:center;color:var(--muted);">
         <div style="font-size:2rem;margin-bottom:0.5rem;">🔍</div>
@@ -68,7 +65,6 @@
       </div>`;
 
     try {
-      // Busca todos os eleitores com endereço
       const pageSize = 200;
       const first = await window.API.get(`/eleitores?page=1&pageSize=${pageSize}`);
       let todos = first.data || [];
@@ -87,10 +83,9 @@
   }
 
   /* ══════════════════════════════════════════════════════
-     LIMPA O NÚMERO DO ENDEREÇO
-     "Rua Ubatuba, 678" → "Rua Ubatuba"
-     "Av. Brasil 1200"  → "Av. Brasil"
-     O número fica no campo separado e NUNCA é alterado.
+     LIMPA / EXTRAI O NÚMERO
+     "Rua Ubatuba, 678" → limpa: "Rua Ubatuba" | extrai: "678"
+     O número é SEMPRE preservado na aplicação.
   ══════════════════════════════════════════════════════ */
   function limparNumero(endereco) {
     return String(endereco || '')
@@ -100,7 +95,6 @@
       .trim();
   }
 
-  // Extrai o número embutido no endereço: "Rua Barretoa, 73" → "73"
   function extrairNumero(endereco) {
     const m = String(endereco || '').match(/,?\s*n?[º°.]?\s*(\d+)\s*$/i);
     return m ? m[1] : '';
@@ -108,11 +102,9 @@
 
   /* ══════════════════════════════════════════════════════
      DETECÇÃO DE PROBLEMAS
-     IMPORTANTE: compara SOMENTE o nome da rua (sem número).
-     Números diferentes na MESMA rua NÃO são problema.
+     Compara SOMENTE o nome da rua (sem número).
   ══════════════════════════════════════════════════════ */
   function detectarProblemas(eleitores) {
-    // Agrupa por nome da rua SEM número
     const grupos = {};
 
     eleitores.forEach(e => {
@@ -127,15 +119,14 @@
     const chaves = Object.keys(grupos);
     const visitados = new Set();
 
-    // 1. Grafias similares (prováveis erros de digitação na RUA)
+    // 1. Grafias similares (prováveis erros de digitação NA RUA)
     chaves.forEach(chave => {
       if (visitados.has(chave)) return;
 
       const similares = chaves.filter(outra => {
         if (outra === chave || visitados.has(outra)) return false;
         const s = similaridade(chave, outra);
-        // Só agrupa se for MUITO similar mas NÃO idêntico
-        return s >= 0.80 && s < 1;
+        return s >= 0.80 && s < 1;   // similar mas NÃO idêntico
       });
 
       if (similares.length === 0) return;
@@ -143,7 +134,6 @@
       const todasVariacoes = [chave, ...similares];
       todasVariacoes.forEach(c => visitados.add(c));
 
-      // Junta todos os itens das variações
       const todosItens = todasVariacoes.flatMap(c => grupos[c]);
 
       // Conta as GRAFIAS DA RUA (sem número!) para achar a canônica
@@ -154,13 +144,11 @@
       });
       const grafias = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
 
-      // Se só existe UMA grafia distinta, não há erro — pula
-      if (grafias.length <= 1) return;
+      if (grafias.length <= 1) return;  // só uma grafia → sem erro
 
-      const grafiaCanonica = grafias[0][0];        // rua mais comum (sem número)
+      const grafiaCanonica = grafias[0][0];
       const normCanonica = normalizar(grafiaCanonica);
 
-      // Eleitores cuja RUA difere da canônica = problemáticos
       const comProblema = todosItens
         .filter(it => normalizar(it.ruaSemNum) !== normCanonica)
         .map(it => it.eleitor);
@@ -168,7 +156,7 @@
       if (comProblema.length > 0) {
         problemas.push({
           tipo: 'grafia_similar',
-          grafia_canonica: grafiaCanonica,       // SEM número
+          grafia_canonica: grafiaCanonica,
           total_corretos: grafias[0][1],
           variacoes: grafias.slice(1),
           eleitores_problema: comProblema,
@@ -215,7 +203,7 @@
     };
 
     eleitores.forEach(e => {
-      const ruaSemNum = limparNumero(e.endereco);   // remove o número
+      const ruaSemNum = limparNumero(e.endereco);
       const low = ruaSemNum.toLowerCase();
       let tipoDetectado = null;
       let nomeRua = ruaSemNum;
@@ -237,9 +225,8 @@
     const problemas = [];
     Object.entries(grupos).forEach(([chave, items]) => {
       const tipos = [...new Set(items.map(i => i.tipo))];
-      if (tipos.length <= 1) return; // todos usam o mesmo tipo
+      if (tipos.length <= 1) return;
 
-      // Tipo mais comum
       const contagem = {};
       items.forEach(i => { contagem[i.tipo] = (contagem[i.tipo] || 0) + 1; });
       const tipoPadrao = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0][0];
@@ -305,7 +292,7 @@
         <div style="font-size:0.82rem;color:var(--muted);margin-top:0.5rem;">
           💡 Para cada grupo, escolha: <strong>✓ Aplicar sugestão</strong> (automático),
           <strong>✏️ Editar</strong> (manual) ou <strong>✗ Ignorar</strong>.
-          Apenas o campo <em>endereço</em> será alterado — o número é mantido.
+          Apenas o nome da rua é alterado — o número é mantido.
         </div>
       </div>`;
 
@@ -360,15 +347,14 @@
             </div>
           </div>
 
-          <!-- Área de edição manual (oculta inicialmente) -->
           <div class="end-form-manual" data-gi="${gi}"
                style="display:none;background:#f8f8f5;border:1px solid var(--line);
                       border-radius:6px;padding:0.8rem;margin-bottom:0.8rem;">
             <div style="font-size:0.82rem;color:var(--navy);font-weight:600;margin-bottom:0.5rem;">
-              ✏️ Editar endereço manualmente
+              ✏️ Editar nome da rua manualmente
             </div>
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.4rem;">
-              Digite o endereço correto (sem o número — ele será mantido):
+              Digite o nome correto da rua (o número de cada eleitor será mantido):
             </div>
             <div style="display:flex;gap:0.5rem;align-items:center;">
               <input type="text"
@@ -385,7 +371,6 @@
             </div>
           </div>
 
-          <!-- Lista de eleitores afetados (primeiros 5, colapsável) -->
           <div style="margin-top:0.5rem;">
             <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.3rem;">
               Eleitores afetados:
@@ -410,7 +395,6 @@
 
     body.innerHTML = html;
 
-    // Footer com "Aplicar tudo"
     const aplicaveis = grupos.filter(g => g.tipo !== 'sem_tipo');
     footer.innerHTML = `
       <button class="btn btn-secondary" data-close="modal-enderecos">Fechar</button>
@@ -422,7 +406,6 @@
       document.getElementById('modal-enderecos').classList.remove('show')
     );
 
-    // Bind dos botões
     bindEventos(grupos);
   }
 
@@ -430,7 +413,6 @@
      EVENTOS
   ══════════════════════════════════════════════════════ */
   function bindEventos(grupos) {
-    // Aplicar sugestão automática
     document.querySelectorAll('.btn-end-aplicar').forEach(btn => {
       btn.addEventListener('click', async () => {
         const gi = Number(btn.dataset.gi);
@@ -440,15 +422,14 @@
 
         if (!confirm(
           `Aplicar a sugestão para ${qtd} eleitor${qtd > 1 ? 'es' : ''}?\n\n` +
-          `Endereço correto: "${sugestao}"\n\n` +
-          `⚠️ Apenas o endereço será alterado — o número será mantido intacto.`
+          `Nome da rua correto: "${sugestao}"\n\n` +
+          `⚠️ Apenas o nome da rua será alterado — o número de cada eleitor será mantido.`
         )) return;
 
         await aplicarCorrecao(grupo, sugestao, btn.closest('.end-grupo'));
       });
     });
 
-    // Edição manual
     document.querySelectorAll('.btn-end-manual').forEach(btn => {
       btn.addEventListener('click', () => {
         const gi = btn.dataset.gi;
@@ -457,7 +438,6 @@
       });
     });
 
-    // Confirmar edição manual
     document.querySelectorAll('.btn-end-confirmar-manual').forEach(btn => {
       btn.addEventListener('click', async () => {
         const gi = Number(btn.dataset.gi);
@@ -467,21 +447,20 @@
         const novoEnd = input?.value.trim();
 
         if (!novoEnd) {
-          window.showToast('Digite o endereço correto.', 'error');
+          window.showToast('Digite o nome da rua.', 'error');
           return;
         }
 
         const qtd = grupo.total_afetados;
         if (!confirm(
           `Aplicar "${novoEnd}" para ${qtd} eleitor${qtd > 1 ? 'es' : ''}?\n\n` +
-          `⚠️ Apenas o endereço será alterado — o número será mantido.`
+          `⚠️ Apenas o nome da rua será alterado — o número será mantido.`
         )) return;
 
         await aplicarCorrecao(grupo, novoEnd, btn.closest('.end-grupo'));
       });
     });
 
-    // Ignorar grupo
     document.querySelectorAll('.btn-end-ignorar').forEach(btn => {
       btn.addEventListener('click', () => {
         const grupo = btn.closest('.end-grupo');
@@ -499,7 +478,6 @@
       });
     });
 
-    // Aplicar tudo
     document.getElementById('btn-end-aplicar-tudo')?.addEventListener('click', async () => {
       const aplicaveis = grupos.filter(g => g.tipo !== 'sem_tipo');
       const total = aplicaveis.reduce((s, g) => s + g.total_afetados, 0);
@@ -520,7 +498,7 @@
       }
 
       window.showToast(
-        `✓ ${ok} endereco(s) corrigido(s)${erros ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`,
+        `✓ ${ok} endereço(s) corrigido(s)${erros ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''}`,
         'success'
       );
 
@@ -531,30 +509,31 @@
   }
 
   /* ══════════════════════════════════════════════════════
-     APLICAR CORREÇÃO — atualiza via PUT /eleitores/:id
-     Mantém "numero" intacto
+     APLICAR CORREÇÃO
+     - Corrige só o NOME da rua
+     - Preserva o número embutido no endereço original
+     - Corrige data_nascimento para YYYY-MM-DD (evita HTTP 400)
   ══════════════════════════════════════════════════════ */
-  async function aplicarCorrecao(grupo, novoEndereco, grupoEl, silencioso = false) {
+  async function aplicarCorrecao(grupo, novoNomeRua, grupoEl, silencioso = false) {
     const eleitores = grupo.eleitores_problema;
     let ok = 0;
     let erros = 0;
 
     for (const eleitor of eleitores) {
       try {
-        // PUT com TODOS os campos obrigatórios + endereco corrigido + numero intacto
-       // Extrai o número que está EMBUTIDO no endereço original (ex: "Rua Barretoa, 73" → "73")
+        // Extrai o número embutido no endereço original (ex: "Rua Barretoa, 73" → "73")
         const numeroEmbutido = extrairNumero(eleitor.endereco);
         // Monta o endereço final: nome corrigido + número original preservado
         const enderecoFinal = numeroEmbutido
-          ? `${novoEndereco}, ${numeroEmbutido}`
-          : novoEndereco;
+          ? `${novoNomeRua}, ${numeroEmbutido}`
+          : novoNomeRua;
 
         await window.API.put(`/eleitores/${eleitor.id}`, {
           nome:          eleitor.nome,
           telefone:      eleitor.telefone    || null,
           email:         eleitor.email       || null,
           data_nascimento: eleitor.data_nascimento
-                             ? String(eleitor.data_nascimento).substring(0, 10)  // só YYYY-MM-DD
+                             ? String(eleitor.data_nascimento).substring(0, 10)  // YYYY-MM-DD
                              : null,
           endereco:      enderecoFinal,            // ← nome corrigido + número preservado
           numero:        eleitor.numero      || null,
@@ -577,18 +556,17 @@
       window.showToast(
         `✓ ${ok} endereço${ok > 1 ? 's' : ''} corrigido${ok > 1 ? 's' : ''}` +
         (erros > 0 ? ` (${erros} erro${erros > 1 ? 's' : ''})` : ''),
-        'success'
+        ok > 0 ? 'success' : 'error'
       );
 
-      // Remove o grupo da tela
       if (grupoEl) {
         grupoEl.innerHTML = `
           <div style="padding:0.8rem;text-align:center;color:var(--success);font-size:0.85rem;">
-            ✅ Corrigido — "${esc(novoEndereco)}" aplicado para ${ok} eleitor${ok > 1 ? 'es' : ''}
+            ✅ Corrigido — "${esc(novoNomeRua)}" aplicado para ${ok} eleitor${ok > 1 ? 'es' : ''}
+            ${erros > 0 ? ` <span style="color:var(--danger);">(${erros} falha${erros > 1 ? 's' : ''})</span>` : ''}
           </div>`;
       }
 
-      // Atualiza a lista de eleitores em background
       if (window.syncFromAPI) {
         window.syncFromAPI().then(() => {
           if (window.renderList) window.renderList();
@@ -606,9 +584,9 @@
     return String(s || '')
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')   // remove acentos
-      .replace(/[^a-z0-9\s]/g, '')       // remove pontuação
-      .replace(/\s+/g, ' ')              // normaliza espaços
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
@@ -618,7 +596,6 @@
     if (!la || !lb) return 0;
     if (Math.abs(la - lb) > Math.max(la, lb) * 0.4) return 0;
 
-    // Levenshtein
     const dp = Array.from({ length: la + 1 }, (_, i) => [i]);
     for (let j = 1; j <= lb; j++) dp[0][j] = j;
     for (let i = 1; i <= la; i++) {
@@ -637,9 +614,6 @@
     );
   }
 
-  /* ══════════════════════════════════════════════════════
-     INIT
-  ══════════════════════════════════════════════════════ */
   function init() {
     document.getElementById('btn-check-enderecos')?.addEventListener('click', openModal);
   }
@@ -651,6 +625,6 @@
   }
 
   window.GEEnderecos = { openModal };
-  console.log('[ENDERECOS v1] Módulo carregado.');
+  console.log('[ENDERECOS v2] Módulo carregado.');
 
 })();
