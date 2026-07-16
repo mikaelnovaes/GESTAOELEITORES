@@ -56,12 +56,6 @@
       ],
     },
     {
-      view: 'mapa',
-      icon: '🗺️',
-      label: 'Mapa Eleitoral',
-      tip: 'Heatmap geográfico',
-    },
-    {
       view: 'agenda',
       icon: '📅',
       label: 'Agenda',
@@ -71,18 +65,6 @@
     },
 
     { section: 'COMUNICAÇÃO' },
-    {
-      icon: '💬',
-      label: 'WhatsApp',
-      tip: 'Envios e disparos',
-      subitems: [
-        { view: 'whatsapp-send', label: 'Enviar Mensagem' },
-        { view: 'disparo', label: 'Disparo Segmentado' },
-        { view: 'whatsapp-log', label: 'Histórico' },
-        { divider: true, adminOnly: true },
-        { view: 'whatsapp-config', label: 'Configurar API', adminOnly: true },
-      ],
-    },
     {
       icon: '🎯',
       label: 'Estratégia',
@@ -102,17 +84,6 @@
       ],
     },
 
-    { section: 'AUTOMAÇÃO' },
-    {
-      icon: '🤖',
-      label: 'Robôs',
-      tip: 'Automações de WhatsApp',
-      subitems: [
-        { view: 'robots', label: 'Central de Robôs' },
-        { view: 'birthday', label: 'Aniversários' },
-        { view: 'reactivation', label: 'Reativação' },
-      ],
-    },
     {
       icon: '⚙️',
       label: 'Admin',
